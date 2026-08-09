@@ -77,10 +77,16 @@ export async function POST(req: NextRequest) {
     description: `Connexion de ${username}`,
   })
 
-  const token = await makeToken(user.id)
+  const token = await makeToken(user.id, { mustChangePassword: user.mustChangePassword })
   const res = ok(
     serialize({
-      user: { id: user.id, username: user.username, fullName: user.fullName, role: user.role },
+      user: {
+        id: user.id,
+        username: user.username,
+        fullName: user.fullName,
+        role: user.role,
+        mustChangePassword: user.mustChangePassword,
+      },
     })
   )
   res.cookies.set(AUTH_COOKIE, token, cookieOptions())

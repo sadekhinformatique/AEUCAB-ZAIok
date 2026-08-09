@@ -1,6 +1,11 @@
 import { db } from "@/lib/db"
-import { DEFAULT_INITIAL_PASSWORD, hashPassword } from "@/lib/sgiau/auth"
+import { hashPassword } from "@/lib/sgiau/auth"
 import { FILIERES, LEVELS } from "@/lib/sgiau/constants"
+
+// Demo-only shared password. Used ONLY by the seed script for the board demo
+// accounts — every seeded account is flagged mustChangePassword so the first
+// real login forces a personal password. Production flows never use it.
+const DEMO_INITIAL_PASSWORD = "Sgiau@2026!"
 
 const FIRST_NAMES_M = ["Amadou", "Ibrahim", "Moussa", "Ousmane", "Souleymane", "Mahamadou", "Boubacar", "Sékou", "Cheikh", "Mamadou"]
 const FIRST_NAMES_F = ["Aïssatou", "Fatoumata", "Mariam", "Aminata", "Kadiatou", "Hawa", "Bintou", "Rokia", "Salimata", "Oumou"]
@@ -37,7 +42,7 @@ export async function seedDatabase(force = false) {
   }
 
   // --- Users ---
-  const seededPwHash = await hashPassword(DEFAULT_INITIAL_PASSWORD)
+  const seededPwHash = await hashPassword(DEMO_INITIAL_PASSWORD)
   const users = await Promise.all(
     [
       { username: "president", email: "president@sgiau.local", fullName: "Amadou Diallo", role: "PRESIDENT" },
@@ -48,7 +53,13 @@ export async function seedDatabase(force = false) {
       { username: "admin", email: "admin@sgiau.local", fullName: "Administrateur SGIAU", role: "ADMIN_IT" },
     ].map((u) =>
       db.user.create({
-        data: { ...u, passwordHash: seededPwHash, isActive: true, failedAttempts: 0 },
+        data: {
+          ...u,
+          passwordHash: seededPwHash,
+          isActive: true,
+          failedAttempts: 0,
+          mustChangePassword: true,
+        },
       })
     )
   )

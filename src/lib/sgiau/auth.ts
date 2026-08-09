@@ -12,14 +12,24 @@ import { AUTH_COOKIE, readToken, SESSION_TTL_MS } from "./token"
 
 export { AUTH_COOKIE }
 
-/** Initial password for accounts created by the adhesion workflow. */
-export const DEFAULT_INITIAL_PASSWORD = "Sgiau@2026!"
-
 export const LOCK_THRESHOLD = 5
 export const LOCK_DURATION_MS = 15 * 60 * 1000
 
 export const hashPassword = (pw: string): Promise<string> => bcrypt.hash(pw, 12)
 export const verifyPassword = (pw: string, hash: string): Promise<boolean> => bcrypt.compare(pw, hash)
+
+/**
+ * Strong random temporary password (16 chars, unambiguous alphabet).
+ * Used for accounts created by the adhesion workflow — the password is never
+ * stored or printed; the member must use the forced-change flow instead.
+ */
+export function generatePassword(): string {
+  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#$%"
+  let out = ""
+  const bytes = crypto.getRandomValues(new Uint8Array(16))
+  for (let i = 0; i < 16; i++) out += chars[bytes[i] % chars.length]
+  return out
+}
 
 /** User id from the session cookie, or null. */
 export async function getSessionUserId(): Promise<string | null> {

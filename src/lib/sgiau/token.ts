@@ -5,7 +5,10 @@
  * can run in the Next.js middleware (edge runtime) as well as in route handlers.
  *
  * Token format:  base64url(JSON payload) "." base64url(HMAC-SHA256(payload))
- * Payload:       { uid: string, exp: number (epoch ms) }
+ * Payload:       { uid: string, exp: number (epoch ms), mcp?: boolean }
+ *
+ * `mcp` (must-change-password) lets the edge middleware gate a session whose
+ * account still has a temporary password, without a database lookup.
  */
 
 export const AUTH_COOKIE = "sgiau_session"
@@ -60,15 +63,19 @@ async function hmac(payload: string): Promise<string> {
 }
 
 /** Create a signed token for a user id, valid for SESSION_TTL_MS. */
-export async function makeToken(uid: string): Promise<string> {
-  const payload = { uid, exp: Date.now() + SESSION_TTL_MS }
+export async function makeToken(uid: string, opts?: { mustChangePassword?: boolean }): Promise<string> {
+  const payload: { uid: string; exp: number; mcp?: boolean } = {
+    uid,
+    exp: Date.now() + SESSION_TTL_MS,
+    ...(opts?.mustChangePassword ? { mcp: true } : {}),
+  }
   const body = bytesToB64url(new TextEncoder().encode(JSON.stringify(payload)))
   const sig = await hmac(body)
   return `${body}.${sig}`
 }
 
-/** Verify a token's signature + expiry. Returns { uid } or null. */
-export async function readToken(token: string | undefined | null): Promise<{ uid: string } | null> {
+/** Verify a token's signature + expiry. Returns { uid, mcp } or null. */
+export async function readToken(token: string | undefined | null): Promise<{ uid: string; mcp?: boolean } | null> {
   if (!token) return null
   const dot = token.indexOf(".")
   if (dot <= 0) return null
@@ -83,11 +90,12 @@ export async function readToken(token: string | undefined | null): Promise<{ uid
     const data = JSON.parse(new TextDecoder().decode(b64urlToBytes(body))) as {
       uid?: unknown
       exp?: unknown
+      mcp?: unknown
     }
     if (typeof data.uid !== "string") return null
     // exp is required — a token without an expiry is rejected
     if (typeof data.exp !== "number" || Date.now() > data.exp) return null
-    return { uid: data.uid }
+    return { uid: data.uid, mcp: data.mcp === true }
   } catch {
     return null
   }

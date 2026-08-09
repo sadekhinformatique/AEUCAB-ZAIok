@@ -40,7 +40,10 @@ export async function GET(req: NextRequest) {
     db.sessionLog.count({ where: { loginAt: { gte: today } } }),
   ])
 
-  return ok({ items: serialize(items), stats: { total, active, locked, sessionsToday } })
+  return ok({
+    items: serialize(items).map(({ passwordHash: _ph, ...user }) => user),
+    stats: { total, active, locked, sessionsToday },
+  })
 }
 
 export async function POST(req: NextRequest) {
@@ -60,6 +63,8 @@ export async function POST(req: NextRequest) {
     data: {
       fullName, username, email, role: role || "MEMBER",
       passwordHash: await hashPassword(String(password)),
+      // A password set by an admin is a temporary password: force the change.
+      mustChangePassword: true,
       isActive: true,
       memberId: memberId || null,
     },

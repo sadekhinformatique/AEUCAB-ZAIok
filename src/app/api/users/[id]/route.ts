@@ -32,7 +32,11 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
   if (typeof body.fullName === "string" && body.fullName.trim()) data.fullName = body.fullName.trim()
   if (typeof body.email === "string" && body.email.trim()) data.email = body.email.trim()
   if (typeof body.username === "string" && body.username.trim()) data.username = body.username.trim()
-  if (body.password) data.passwordHash = await hashPassword(String(body.password))
+  if (body.password) {
+    data.passwordHash = await hashPassword(String(body.password))
+    // A password set by an admin is a temporary password: force the change.
+    data.mustChangePassword = true
+  }
   if (body.unlock) {
     data.failedAttempts = 0
     data.lockedUntil = null

@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server"
 import { db } from "@/lib/db"
 import { ok, err, audit, serialize, getCurrentUserId } from "@/lib/sgiau/api"
-import { DEFAULT_INITIAL_PASSWORD, hashPassword } from "@/lib/sgiau/auth"
+import { generatePassword, hashPassword } from "@/lib/sgiau/auth"
 
 export const dynamic = "force-dynamic"
 
@@ -66,7 +66,10 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
         data: {
           username: before.member.matricule,
           email: before.member.email ?? `${before.member.matricule}@sgiau.local`,
-          passwordHash: await hashPassword(DEFAULT_INITIAL_PASSWORD),
+          // Random temporary password — never stored nor printed. The member
+          // must set a personal password through the forced-change flow.
+          passwordHash: await hashPassword(generatePassword()),
+          mustChangePassword: true,
           fullName: `${before.member.firstName} ${before.member.lastName}`,
           role: "MEMBER",
           isActive: true,
