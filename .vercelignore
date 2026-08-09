@@ -1,0 +1,22 @@
+# Documentation / analyses locales (inutiles à déployer)
+AUDIT_SGIAU.md
+analysis/
+skills/
+
+# Logs et artefacts de dev
+*.log
+dev.pid
+.dev.pid
+prod-test.log
+bun-*.log
+
+# Secrets locaux (double sécurité)
+.env
+.env.local
+.env.production
+
+# Playwright CLI artifacts
+.playwright-cli/
+
+# Artefacts de build
+.next/

@@ -9,6 +9,7 @@
     "lint": "eslint .",
     "db:push": "prisma db push --accept-data-loss",
     "db:generate": "prisma generate",
+    "postinstall": "prisma generate",
     "auth:init": "bun scripts/auth-init.ts",
     "db:migrate-academic": "bun scripts/migrate-academic-structure.ts",
     "db:migrate": "prisma migrate dev",
