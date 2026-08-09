@@ -51,8 +51,6 @@ test
 prompt
 
 server.log
-# Skills directory
-/skills/
 
 # SGIAU runtime artifacts
 /agent-ctx/

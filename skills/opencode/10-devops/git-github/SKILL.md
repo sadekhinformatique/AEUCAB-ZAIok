@@ -1,0 +1,38 @@
+---
+name: git-github
+description: Utiliser cette skill pour : Structurer un workflow Git propre (branches, commits, PR, revue de code) adapté à la taille de l'équipe. S'applique aux projets web/mobile (catégorie « DevOps » du pack Web Master AI, stack type Next.js, React Native, Supabase, Django, Electron). Déclencher dès qu'une tâche touche à « git & github ».
+---
+
+# Git & GitHub
+
+**Catégorie :** 10. DevOps — Pack *Web Master AI*
+
+## Objectif
+Structurer un workflow git propre (branches, commits, pr, revue de code) adapté à la taille de l'équipe.
+
+## Quand déclencher cette skill
+- L'utilisateur demande explicitement de travailler sur « git & github »
+- La tâche en cours implique structurer un workflow git propre (branches, commits, pr, revue de code) adapté à la taille de l'équipe
+- Un fichier, un module ou une fonctionnalité du projet touche directement ce sujet
+- Une revue de code, un audit ou une nouvelle fonctionnalité en dépend
+
+## Checklist / bonnes pratiques
+- Committer souvent, avec des messages clairs et atomiques
+- Protéger la branche principale et passer par des pull requests
+- Automatiser build/tests/déploiement plutôt que de le faire à la main
+- Séparer strictement config/secrets du code source
+- Garder des environnements staging et production équivalents
+- Surveiller activement plutôt que découvrir les problèmes par les utilisateurs
+- Documenter la procédure de rollback avant d'en avoir besoin
+
+## Démarche recommandée
+1. Clarifier le besoin exact et le contexte du projet (stack, contraintes, existant)
+2. Identifier les options possibles et choisir la plus adaptée au contexte (pas la plus complexe)
+3. Mettre en œuvre par petites étapes vérifiables
+4. Vérifier le résultat par rapport à la checklist ci-dessus
+5. Signaler explicitement les limites, risques ou points restant à valider
+
+## Livrables attendus
+- Une solution concrète et fonctionnelle pour « git & github », adaptée au projet en cours
+- Une explication claire des choix effectués et de leurs compromis
+- La liste des points de vigilance ou suites possibles, le cas échéant
