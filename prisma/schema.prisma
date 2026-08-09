@@ -1,0 +1,748 @@
+// SGIAU — Système de Gestion Intégrée de l'Amicale Universitaire
+// Prisma schema (SQLite). All enum-like fields use String for SQLite compatibility.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================================
+// MODULE 1 — UTILISATEURS & SÉCURITÉ
+// ============================================================
+
+model User {
+  id              String   @id @default(cuid())
+  username        String   @unique
+  email           String   @unique
+  passwordHash    String
+  fullName        String
+  role            String   @default("MEMBER") // PRESIDENT, SECRETAIRE, TRESORIER, CAISSIER, COMMISSAIRE, ADMIN_IT, MEMBER, CUSTOM
+  isActive        Boolean  @default(true)
+  failedAttempts  Int      @default(0)
+  lockedUntil     DateTime?
+  mustChangePassword Boolean @default(false)
+  lastLoginAt     DateTime?
+  memberId        String?  @unique
+  member          Member?  @relation(fields: [memberId], references: [id])
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  auditLogs       AuditLog[]
+  notifications   Notification[]
+  receiptsIssued  Receipt[]       @relation("ReceiptCashier")
+  expensesValid   Expense[]       @relation("ExpenseValidator")
+  expensesResp    Expense[]       @relation("ExpenseResponsible")
+  syncLogs        SyncLog[]
+  sessions        SessionLog[]
+}
+
+model SessionLog {
+  id           String   @id @default(cuid())
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  loginAt      DateTime @default(now())
+  logoutAt     DateTime?
+  ipAddress    String?
+  userAgent    String?
+  success      Boolean  @default(true)
+}
+
+model AuditLog {
+  id           String   @id @default(cuid())
+  userId       String?
+  user         User?    @relation(fields: [userId], references: [id])
+  action       String   // CREATE, UPDATE, DELETE, VALIDATE, LOGIN, EXPORT, PRINT
+  entity       String   // Member, Receipt, Expense...
+  entityId     String?
+  beforeData   String?  // JSON snapshot
+  afterData    String?  // JSON snapshot
+  description  String?
+  createdAt    DateTime @default(now())
+
+  @@index([entity, entityId])
+  @@index([createdAt])
+}
+
+// ============================================================
+// MODULE 2 — MEMBRES
+// ============================================================
+
+model Member {
+  id              String   @id @default(cuid())
+  matricule       String   @unique
+  firstName       String
+  lastName        String
+  sex             String   @default("M") // M, F
+  birthDate       DateTime?
+  phone           String?
+  email           String?
+  address         String?
+  faculty         String?
+  department      String?
+  level           String?
+  academicYear    String?
+  photoUrl        String?
+  status          String   @default("ACTIVE") // ACTIVE, SUSPENDED, ARCHIVED, PENDING
+  qrCode          String?  @unique
+  enrolledAt      DateTime @default(now())
+  archivedAt      DateTime?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  user            User?
+  adhesion        Adhesion?
+  payments        Payment[]
+  receipts        Receipt[]
+  card            MemberCard?
+  presences       Presence[]
+  votes           VoteBallot[]
+  electionCands   ElectionCandidate[]
+  activities      ActivityParticipant[]
+  meetings        MeetingParticipant[]
+  formations      FormationParticipant[]
+  borrows         LibraryBorrow[]
+  requests        MemberRequest[]
+  notifications   Notification[]
+  syncMeta        SyncMeta?
+}
+
+// ============================================================
+// MODULE 3 — ADHÉSION (workflow)
+// ============================================================
+
+model Adhesion {
+  id              String   @id @default(cuid())
+  memberId        String   @unique
+  member          Member   @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  form            String?  // JSON of submitted form fields
+  status          String   @default("PENDING") // PENDING, SG_APPROVED, PRESIDENT_APPROVED, REFUSED
+  refusalReason   String?
+  sgValidatedById String?
+  sgValidatedAt   DateTime?
+  presidentValidatedById String?
+  presidentValidatedAt   DateTime?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+// ============================================================
+// MODULE 4 — COTISATIONS (types)
+// ============================================================
+
+model CotisationType {
+  id          String   @id @default(cuid())
+  name        String
+  kind        String   // ANNUAL, MONTHLY, EXCEPTIONAL, EVENT, DONATION
+  defaultAmount Float
+  faculty     String?  // optional scoping
+  level       String?
+  academicYear String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+
+  payments    Payment[]
+}
+
+// ============================================================
+// MODULE 4/5 — PAIEMENTS & REÇUS
+// ============================================================
+
+model Payment {
+  id              String   @id @default(cuid())
+  reference       String   @unique
+  memberId        String
+  member          Member   @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  cotisationTypeId String?
+  cotisationType  CotisationType? @relation(fields: [cotisationTypeId], references: [id])
+  amount          Float
+  amountPaid      Float    @default(0)
+  paymentDate     DateTime @default(now())
+  paymentMode     String   @default("CASH") // CASH, MOBILE, BANK, CARD, CHEQUE
+  cashierId       String?
+  justificativeUrl String?
+  status          String   @default("PAID") // PARTIAL, PAID, CANCELLED
+  note            String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  receipt         Receipt?
+
+  @@index([memberId])
+  @@index([paymentDate])
+}
+
+model Receipt {
+  id              String   @id @default(cuid())
+  number          String   @unique
+  paymentId       String   @unique
+  payment         Payment  @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+  memberId        String
+  member          Member   @relation(fields: [memberId], references: [id])
+  amount          Float
+  cashierId       String?
+  cashier         User?    @relation("ReceiptCashier", fields: [cashierId], references: [id])
+  treasurerSign   String?
+  cashierSign     String?
+  qrCode          String?
+  pdfUrl          String?
+  cancelledAt     DateTime?
+  cancelReason    String?
+  createdAt       DateTime @default(now())
+
+  @@index([memberId])
+}
+
+// ============================================================
+// MODULE 6 — FINANCE & COMPTABILITÉ
+// ============================================================
+
+model Account {
+  id          String   @id @default(cuid())
+  code        String   @unique
+  name        String
+  type        String   // ASSET, LIABILITY, EQUITY, REVENUE, EXPENSE
+  parentId    String?
+  parent      Account? @relation("AccountTree", fields: [parentId], references: [id])
+  children    Account[] @relation("AccountTree")
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+
+  ledgerEntries LedgerEntry[]
+  cashAccounts  CashAccount[]
+}
+
+model FiscalYear {
+  id          String   @id @default(cuid())
+  name        String   @unique // e.g. "2024-2025"
+  startDate   DateTime
+  endDate     DateTime
+  closed      Boolean  @default(false)
+  closedAt    DateTime?
+  createdAt   DateTime @default(now())
+
+  ledgerEntries LedgerEntry[]
+  expenses      Expense[]
+  activities    Activity[]
+}
+
+model LedgerEntry {
+  id          String   @id @default(cuid())
+  fiscalYearId String?
+  fiscalYear   FiscalYear? @relation(fields: [fiscalYearId], references: [id])
+  accountId    String
+  account      Account   @relation(fields: [accountId], references: [id])
+  date         DateTime  @default(now())
+  debit        Float     @default(0)
+  credit       Float     @default(0)
+  label        String
+  refType      String?   // PAYMENT, EXPENSE, TRANSFER
+  refId        String?
+  createdAt    DateTime  @default(now())
+
+  @@index([accountId])
+  @@index([date])
+}
+
+// ============================================================
+// MODULE 7 — CAISSE
+// ============================================================
+
+model CashAccount {
+  id          String   @id @default(cuid())
+  name        String
+  accountId   String
+  account     Account  @relation(fields: [accountId], references: [id])
+  balance     Float    @default(0)
+  currency    String   @default("FCFA")
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+
+  transfersOut CashTransfer[] @relation("TransferFrom")
+  transfersIn  CashTransfer[] @relation("TransferTo")
+  movements    CashMovement[]
+}
+
+model CashMovement {
+  id           String   @id @default(cuid())
+  cashAccountId String
+  cashAccount  CashAccount @relation(fields: [cashAccountId], references: [id], onDelete: Cascade)
+  type         String   // IN, OUT
+  amount       Float
+  label        String
+  date         DateTime @default(now())
+  refType      String?
+  refId        String?
+  validated    Boolean  @default(false)
+  createdAt    DateTime @default(now())
+
+  @@index([cashAccountId])
+}
+
+model CashTransfer {
+  id          String   @id @default(cuid())
+  fromAccountId String
+  fromAccount CashAccount @relation("TransferFrom", fields: [fromAccountId], references: [id])
+  toAccountId String
+  toAccount   CashAccount @relation("TransferTo", fields: [toAccountId], references: [id])
+  amount      Float
+  date        DateTime @default(now())
+  note        String?
+  createdAt   DateTime @default(now())
+}
+
+// ============================================================
+// MODULE 8 — DÉPENSES
+// ============================================================
+
+model ExpenseCategory {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  createdAt DateTime @default(now())
+
+  expenses  Expense[]
+}
+
+model Expense {
+  id             String   @id @default(cuid())
+  reference      String   @unique
+  label          String
+  categoryId     String?
+  category       ExpenseCategory? @relation(fields: [categoryId], references: [id])
+  amount         Float
+  date           DateTime @default(now())
+  responsibleId  String?
+  responsible    User?    @relation("ExpenseResponsible", fields: [responsibleId], references: [id])
+  validatorId    String?
+  validator      User?    @relation("ExpenseValidator", fields: [validatorId], references: [id])
+  justificativeUrl String?
+  status         String   @default("PENDING") // PENDING, VALIDATED, REJECTED
+  fiscalYearId   String?
+  fiscalYear     FiscalYear? @relation(fields: [fiscalYearId], references: [id])
+  activityId     String?
+  activity       Activity? @relation(fields: [activityId], references: [id])
+  note           String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([date])
+}
+
+// ============================================================
+// MODULE 9 — ACTIVITÉS
+// ============================================================
+
+model Activity {
+  id            String   @id @default(cuid())
+  name          String
+  description   String?
+  type          String   @default("EVENT") // EVENT, OUTING, TRAINING, CONFERENCE
+  startDate     DateTime
+  endDate       DateTime?
+  location      String?
+  budget        Float    @default(0)
+  status        String   @default("PLANNED") // PLANNED, ONGOING, DONE, CANCELLED
+  fiscalYearId  String?
+  fiscalYear    FiscalYear? @relation(fields: [fiscalYearId], references: [id])
+  photoUrls     String?  // JSON array (serialized)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  participants  ActivityParticipant[]
+  expenses      Expense[]
+  documents     Document[]   @relation("ActivityDocuments")
+  presences     Presence[]
+}
+
+model ActivityParticipant {
+  id          String   @id @default(cuid())
+  activityId  String
+  activity    Activity @relation(fields: [activityId], references: [id], onDelete: Cascade)
+  memberId    String
+  member      Member   @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  role        String   @default("PARTICIPANT")
+  registeredAt DateTime @default(now())
+
+  @@unique([activityId, memberId])
+}
+
+// ============================================================
+// MODULE 10 — RÉUNIONS
+// ============================================================
+
+model Meeting {
+  id          String   @id @default(cuid())
+  title       String
+  agenda      String?  // ordre du jour
+  decisions   String?  // décisions
+  pvUrl       String?  // procès-verbal
+  startDate   DateTime
+  endDate     DateTime?
+  location    String?
+  status      String   @default("SCHEDULED") // SCHEDULED, DONE, CANCELLED
+  reminderSent Boolean @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  participants MeetingParticipant[]
+  documents    Document[]  @relation("MeetingDocuments")
+}
+
+model MeetingParticipant {
+  id          String   @id @default(cuid())
+  meetingId   String
+  meeting     Meeting  @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+  memberId    String
+  member      Member   @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  attended    Boolean  @default(false)
+  excuse      String?
+
+  @@unique([meetingId, memberId])
+}
+
+// ============================================================
+// MODULE 11 — ÉLECTIONS
+// ============================================================
+
+model Election {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  startDate   DateTime
+  endDate     DateTime
+  status      String   @default("OPEN") // OPEN, CLOSED, ARCHIVED
+  archivedAt  DateTime?
+  createdAt   DateTime @default(now())
+
+  candidates  ElectionCandidate[]
+  ballots     VoteBallot[]
+}
+
+model ElectionCandidate {
+  id          String   @id @default(cuid())
+  electionId  String
+  election    Election @relation(fields: [electionId], references: [id], onDelete: Cascade)
+  memberId    String
+  member      Member   @relation(fields: [memberId], references: [id])
+  position    String   // poste visé
+  program     String?
+  createdAt   DateTime @default(now())
+
+  @@unique([electionId, memberId])
+}
+
+// ============================================================
+// MODULE 12 — VOTES INTERNES
+// ============================================================
+
+model Vote {
+  id          String   @id @default(cuid())
+  title       String
+  question    String
+  anonymous   Boolean  @default(true)
+  startDate   DateTime
+  endDate     DateTime
+  status      String   @default("OPEN")
+  qrCode      String?
+  createdAt   DateTime @default(now())
+
+  options     VoteOption[]
+  ballots     VoteBallot[]
+}
+
+model VoteOption {
+  id          String   @id @default(cuid())
+  voteId      String
+  vote        Vote     @relation(fields: [voteId], references: [id], onDelete: Cascade)
+  label       String
+  createdAt   DateTime @default(now())
+
+  ballots     VoteBallot[]
+}
+
+model VoteBallot {
+  id          String   @id @default(cuid())
+  voteId      String?
+  vote        Vote?    @relation(fields: [voteId], references: [id], onDelete: Cascade)
+  electionId  String?
+  election    Election? @relation(fields: [electionId], references: [id], onDelete: Cascade)
+  optionId    String?
+  option      VoteOption? @relation(fields: [optionId], references: [id])
+  candidateId String?
+  memberId    String?
+  member      Member?  @relation(fields: [memberId], references: [id])
+  votedAt     DateTime @default(now())
+
+  @@index([voteId, memberId])
+  @@index([electionId, memberId])
+}
+
+// ============================================================
+// MODULE 13 — CARTES MEMBRES
+// ============================================================
+
+model MemberCard {
+  id          String   @id @default(cuid())
+  cardNumber  String   @unique
+  memberId    String   @unique
+  member      Member   @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  issueDate   DateTime @default(now())
+  expiryDate  DateTime?
+  qrCode      String?
+  status      String   @default("ACTIVE") // ACTIVE, EXPIRED, REPLACED
+  createdAt   DateTime @default(now())
+}
+
+// ============================================================
+// MODULE 14 — PRÉSENCES
+// ============================================================
+
+model Presence {
+  id          String   @id @default(cuid())
+  memberId    String
+  member      Member   @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  scope       String   // ACTIVITY, MEETING, FORMATION
+  scopeId     String
+  activity    Activity? @relation(fields: [scopeId], references: [id])
+  checkInAt   DateTime @default(now())
+  method      String   @default("MANUAL") // MANUAL, QR
+  createdAt   DateTime @default(now())
+
+  @@index([scope, scopeId])
+}
+
+// ============================================================
+// MODULE 15 — DOCUMENTS
+// ============================================================
+
+model Document {
+  id          String   @id @default(cuid())
+  title       String
+  description String?
+  category    String   @default("GENERAL") // GENERAL, FINANCE, LEGAL, REPORT, OTHER
+  fileUrl     String?
+  fileType    String?
+  fileSize    Int?
+  signedBy    String?
+  signedAt    DateTime?
+  signatureHash String?
+  tags        String?  // JSON array
+  activityId  String?
+  activity    Activity? @relation("ActivityDocuments", fields: [activityId], references: [id])
+  meetingId   String?
+  meeting     Meeting?  @relation("MeetingDocuments", fields: [meetingId], references: [id])
+  visibility  String   @default("STAFF") // STAFF, MEMBERS, PUBLIC
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([category])
+}
+
+// ============================================================
+// MODULE 16 — INVENTAIRE
+// ============================================================
+
+model InventoryItem {
+  id           String   @id @default(cuid())
+  inventoryNo  String   @unique
+  name         String
+  category     String?
+  purchasePrice Float   @default(0)
+  currentValue Float   @default(0)
+  condition    String   @default("GOOD") // NEW, GOOD, DAMAGED, BROKEN
+  location     String?
+  responsibleId String?
+  purchaseDate DateTime?
+  maintenanceNote String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+// ============================================================
+// MODULE 17 — FORMATIONS
+// ============================================================
+
+model Formation {
+  id          String   @id @default(cuid())
+  title       String
+  description String?
+  trainer     String
+  startDate   DateTime
+  endDate     DateTime?
+  location    String?
+  budget      Float    @default(0)
+  documentUrl String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  participants FormationParticipant[]
+}
+
+model FormationParticipant {
+  id          String   @id @default(cuid())
+  formationId String
+  formation   Formation @relation(fields: [formationId], references: [id], onDelete: Cascade)
+  memberId    String
+  member      Member   @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  attended    Boolean  @default(false)
+  certificateUrl String?
+  registeredAt DateTime @default(now())
+
+  @@unique([formationId, memberId])
+}
+
+// ============================================================
+// MODULE 18 — BIBLIOTHÈQUE
+// ============================================================
+
+model LibraryResource {
+  id          String   @id @default(cuid())
+  title       String
+  author      String?
+  category    String?
+  isbn        String?
+  fileUrl     String?
+  totalCopies Int      @default(1)
+  available   Int      @default(1)
+  createdAt   DateTime @default(now())
+
+  borrows     LibraryBorrow[]
+}
+
+model LibraryBorrow {
+  id          String   @id @default(cuid())
+  resourceId  String
+  resource    LibraryResource @relation(fields: [resourceId], references: [id], onDelete: Cascade)
+  memberId    String
+  member      Member   @relation(fields: [memberId], references: [id])
+  borrowedAt  DateTime @default(now())
+  dueDate     DateTime?
+  returnedAt  DateTime?
+  status      String   @default("BORROWED") // BORROWED, RETURNED, OVERDUE
+  createdAt   DateTime @default(now())
+
+  @@index([memberId])
+}
+
+// ============================================================
+// MODULE 19 — PARTENAIRES
+// ============================================================
+
+model Partner {
+  id          String   @id @default(cuid())
+  name        String
+  type        String   @default("PARTNER") // PARTNER, SPONSOR, INSTITUTION
+  contactName String?
+  contactPhone String?
+  contactEmail String?
+  address     String?
+  contractUrl String?
+  contribution Float   @default(0)
+  startDate   DateTime?
+  endDate     DateTime?
+  note        String?
+  createdAt   DateTime @default(now())
+}
+
+// ============================================================
+// MODULE 20 — ARCHIVES
+// ============================================================
+
+model Archive {
+  id          String   @id @default(cuid())
+  title       String
+  year        String
+  category    String   @default("DOCUMENT") // DOCUMENT, PHOTO, VIDEO
+  fileUrl     String?
+  description String?
+  protected   Boolean  @default(false)
+  createdAt   DateTime @default(now())
+
+  @@index([year])
+}
+
+// ============================================================
+// MODULE 22 — NOTIFICATIONS
+// ============================================================
+
+model Notification {
+  id          String   @id @default(cuid())
+  userId      String?
+  user        User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  memberId    String?
+  member      Member?  @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  title       String
+  message     String
+  channel     String   @default("APP") // APP, WHATSAPP, EMAIL
+  type        String   @default("INFO") // INFO, REMINDER, PAYMENT, MEETING, ACTIVITY
+  isRead      Boolean  @default(false)
+  sentAt      DateTime @default(now())
+  readAt      DateTime?
+  createdAt   DateTime @default(now())
+
+  @@index([userId, isRead])
+  @@index([memberId, isRead])
+}
+
+// ============================================================
+// MODULE 25 — SYNCHRONISATION
+// ============================================================
+
+model SyncMeta {
+  id          String   @id @default(cuid())
+  memberId    String   @unique
+  member      Member   @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  lastSyncAt  DateTime?
+  syncStatus  String   @default("SYNCED") // SYNCED, PENDING, CONFLICT
+  revision    Int      @default(1)
+  updatedAt   DateTime @updatedAt
+}
+
+model SyncLog {
+  id          String   @id @default(cuid())
+  userId      String?
+  user        User?    @relation(fields: [userId], references: [id])
+  direction   String   // PUSH, PULL
+  entity      String
+  entityId    String
+  status      String   // SUCCESS, CONFLICT, ERROR
+  message     String?
+  createdAt   DateTime @default(now())
+
+  @@index([createdAt])
+}
+
+// ============================================================
+// MODULE 23 — DEMANDES MEMBRE (espace membre)
+// ============================================================
+
+model MemberRequest {
+  id          String   @id @default(cuid())
+  memberId    String
+  member      Member   @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  type        String   // CERTIFICATE, RECEIPT, CARD_RENEWAL, OTHER
+  subject     String
+  body        String?
+  status      String   @default("PENDING") // PENDING, APPROVED, REJECTED
+  response    String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+// ============================================================
+// ANNONCES (espace membre)
+// ============================================================
+
+model Announcement {
+  id          String   @id @default(cuid())
+  title       String
+  body        String
+  audience    String   @default("ALL") // ALL, MEMBERS, STAFF
+  pinned      Boolean  @default(false)
+  publishedAt DateTime @default(now())
+  expiresAt   DateTime?
+  createdAt   DateTime @default(now())
+}
