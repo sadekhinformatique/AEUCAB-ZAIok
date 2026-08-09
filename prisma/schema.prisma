@@ -474,8 +474,11 @@ model VoteBallot {
   candidateId String?
   memberId    String?
   member      Member?  @relation(fields: [memberId], references: [id])
+  voterId     String?  // real voter id, always set by the server (never exposed) — enables DB-level anti-double-vote even for anonymous votes
   votedAt     DateTime @default(now())
 
+  @@unique([voteId, voterId])
+  @@unique([electionId, voterId, candidateId])
   @@index([voteId, memberId])
   @@index([electionId, memberId])
 }
@@ -511,7 +514,7 @@ model Presence {
   method      String   @default("MANUAL") // MANUAL, QR
   createdAt   DateTime @default(now())
 
-  @@index([scope, scopeId])
+  @@unique([scope, scopeId, memberId])
 }
 
 // ============================================================

@@ -1,6 +1,7 @@
 import { db } from "@/lib/db"
 import { hashPassword } from "@/lib/sgiau/auth"
 import { FILIERES, LEVELS } from "@/lib/sgiau/constants"
+import { Prisma } from "@prisma/client"
 
 // Demo-only shared password. Used ONLY by the seed script for the board demo
 // accounts — every seeded account is flagged mustChangePassword so the first
@@ -500,13 +501,19 @@ export async function seedDatabase(force = false) {
   }
   // some ballots
   const cands = await db.electionCandidate.findMany()
+  const electionBallots: Prisma.VoteBallotCreateManyInput[] = []
   for (let i = 0; i < 30; i++) {
     const c = pick(cands)
     const m = pick(members)
-    await db.voteBallot.create({
-      data: { electionId: election.id, candidateId: c.id, memberId: m.id, votedAt: new Date(Date.now() - randInt(1, 9) * 86400000) },
+    electionBallots.push({
+      electionId: election.id,
+      candidateId: c.id,
+      memberId: m.id,
+      voterId: m.id,
+      votedAt: new Date(Date.now() - randInt(1, 9) * 86400000),
     })
   }
+  await db.voteBallot.createMany({ data: electionBallots, skipDuplicates: true })
 
   // --- Internal vote ---
   const vote = await db.vote.create({
@@ -526,12 +533,18 @@ export async function seedDatabase(force = false) {
     const opt = await db.voteOption.create({ data: { voteId: vote.id, label: o } })
     optIds.push(opt.id)
   }
+  const voteBallots: Prisma.VoteBallotCreateManyInput[] = []
   for (let i = 0; i < 40; i++) {
     const m = pick(members)
-    await db.voteBallot.create({
-      data: { voteId: vote.id, optionId: pick(optIds), memberId: m.id, votedAt: new Date(Date.now() - randInt(1, 4) * 86400000) },
+    voteBallots.push({
+      voteId: vote.id,
+      optionId: pick(optIds),
+      memberId: m.id,
+      voterId: m.id,
+      votedAt: new Date(Date.now() - randInt(1, 4) * 86400000),
     })
   }
+  await db.voteBallot.createMany({ data: voteBallots, skipDuplicates: true })
 
   // --- Documents ---
   const docDefs = [

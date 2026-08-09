@@ -15,6 +15,37 @@ export async function getCurrentUserId(): Promise<string | null> {
 }
 
 /**
+ * memberId linked to the session user, or null.
+ */
+export async function getSessionMemberId(): Promise<string | null> {
+  const user = await getSessionUser()
+  return user?.memberId ?? null
+}
+
+/** Board/committee roles allowed on privileged endpoints (kiosque member-space…). */
+export const STAFF_ROLES = [
+  "PRESIDENT",
+  "SECRETAIRE",
+  "TRESORIER",
+  "CAISSIER",
+  "COMMISSAIRE",
+  "ADMIN_IT",
+] as const
+
+export type StaffRole = (typeof STAFF_ROLES)[number]
+
+/**
+ * BOARD-role gate. Returns { error: 401 } if not authenticated,
+ * { error: 403 } if authenticated but not a board member.
+ */
+export async function requireStaff(): Promise<{ error: number | null; user: { id: string } | null }> {
+  const user = await getSessionUser()
+  if (!user) return { error: 401, user: null }
+  if (!STAFF_ROLES.includes(user.role as StaffRole)) return { error: 403, user: null }
+  return { error: null, user: { id: user.id } }
+}
+
+/**
  * ADMIN_IT-only gate. Returns { error: 401 } if not authenticated,
  * { error: 403 } if authenticated but not an administrator.
  */

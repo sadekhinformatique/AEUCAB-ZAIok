@@ -28,15 +28,23 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     if (!opt || opt.voteId !== id) return err("Option invalide", 422)
   }
 
-  const ballot = await db.voteBallot.create({
-    data: {
-      voteId: id,
-      optionId: optionId || null,
-      candidateId: candidateId || null,
-      memberId: vote.anonymous ? null : memberId,
-    },
-    include: { option: { select: { id: true, label: true } } },
-  })
+  let ballot
+  try {
+    ballot = await db.voteBallot.create({
+      data: {
+        voteId: id,
+        optionId: optionId || null,
+        candidateId: candidateId || null,
+        memberId: vote.anonymous ? null : memberId,
+        voterId: memberId,
+      },
+      include: { option: { select: { id: true, label: true } } },
+    })
+  } catch (e: unknown) {
+    // P2002 unique violation — simultaneous double submit
+    if (e && typeof e === "object" && "code" in e && e.code === "P2002") return err("Vous avez déjà voté", 409)
+    throw e
+  }
   const userId = await getCurrentUserId()
   await audit({
     userId,

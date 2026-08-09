@@ -48,15 +48,22 @@ export async function POST(req: NextRequest) {
   })
   if (existing) return err("Ce membre a déjà été enregistré", 409)
 
-  const presence = await db.presence.create({
-    data: {
-      memberId,
-      scope,
-      scopeId,
-      method: method || "MANUAL",
-    },
-    include: { member: { select: { id: true, matricule: true, firstName: true, lastName: true } } },
-  })
+  let presence
+  try {
+    presence = await db.presence.create({
+      data: {
+        memberId,
+        scope,
+        scopeId,
+        method: method || "MANUAL",
+      },
+      include: { member: { select: { id: true, matricule: true, firstName: true, lastName: true } } },
+    })
+  } catch (e: unknown) {
+    // P2002 unique violation — simultaneous double check-in
+    if (e && typeof e === "object" && "code" in e && e.code === "P2002") return err("Ce membre a déjà été enregistré", 409)
+    throw e
+  }
   const userId = await getCurrentUserId()
   await audit({
     userId,

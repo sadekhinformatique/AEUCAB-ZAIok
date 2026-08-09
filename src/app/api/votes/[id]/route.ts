@@ -29,7 +29,8 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
     createdAt: o.createdAt,
   }))
   const total = options.reduce((sum, o) => sum + o.voteCount, 0)
-  return ok(serialize({ ...vote, options, totalBallots: total }))
+  const ballots = vote.ballots.map(({ voterId: _voterId, ...b }) => b)
+  return ok(serialize({ ...vote, ballots, options, totalBallots: total }))
 }
 
 export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {

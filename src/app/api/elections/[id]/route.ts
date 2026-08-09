@@ -31,7 +31,8 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
     ...c,
     voteCount: counts[c.id] ?? 0,
   }))
-  return ok(serialize({ ...election, candidates }))
+  const ballots = election.ballots.map(({ voterId: _voterId, ...b }) => b)
+  return ok(serialize({ ...election, ballots, candidates }))
 }
 
 export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
