@@ -89,7 +89,7 @@ export default function FinanceModule() {
   // Filtered entries (by account on Journal tab)
   const filteredEntries = useMemo(() => {
     if (accFilter === "ALL") return entries
-    return entries.filter((e) => e.accountId === accFilter)
+    return entries.filter((e) => e.account.id === accFilter)
   }, [entries, accFilter])
 
   // Build a flat list of accounts with parent indentation hint (sort by code)

@@ -4,6 +4,7 @@ import "./globals.css";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as SonnerToaster } from "@/components/ui/sonner";
 import { ThemeProvider } from "@/components/sgiau/theme-provider";
+import { MotionProvider } from "@/components/sgiau/motion-provider";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -33,10 +34,12 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased bg-background text-foreground`}
       >
-        <ThemeProvider attribute="class" defaultTheme="light" enableSystem disableTransitionOnChange>
-          {children}
-          <Toaster />
-          <SonnerToaster richColors position="top-right" />
+        <ThemeProvider attribute="class" defaultTheme="light" enableSystem>
+          <MotionProvider reducedMotion="user">
+            {children}
+            <Toaster />
+            <SonnerToaster richColors position="top-right" />
+          </MotionProvider>
         </ThemeProvider>
       </body>
     </html>

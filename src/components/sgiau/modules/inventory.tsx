@@ -298,8 +298,8 @@ export default function InventoryModule() {
                   {detail.location && <Badge variant="outline"><MapPin className="h-3 w-3 mr-1" />{detail.location}</Badge>}
                 </div>
                 <div className="grid grid-cols-2 gap-3 text-sm">
-                  <Info label="Prix d'achat" value={detail.purchasePrice?.toLocaleString("fr-FR") + " FCFA" ?? "—"} />
-                  <Info label="Valeur actuelle" value={detail.currentValue?.toLocaleString("fr-FR") + " FCFA" ?? "—"} />
+                  <Info label="Prix d'achat" value={detail.purchasePrice != null ? detail.purchasePrice.toLocaleString("fr-FR") + " FCFA" : "—"} />
+                  <Info label="Valeur actuelle" value={detail.currentValue != null ? detail.currentValue.toLocaleString("fr-FR") + " FCFA" : "—"} />
                   <Info label="Date d'achat" value={formatDate(detail.purchaseDate)} />
                   <Info label="Catégorie" value={detail.category ?? "—"} />
                 </div>

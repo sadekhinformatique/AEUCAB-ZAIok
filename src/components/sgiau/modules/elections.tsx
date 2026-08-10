@@ -22,6 +22,7 @@ import {
   Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription,
 } from "@/components/ui/sheet"
 import { toast } from "sonner"
+import { useReducedMotion } from "framer-motion"
 import { formatDate } from "@/lib/sgiau/format"
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend,
@@ -70,6 +71,7 @@ const POSITIONS = [
 ]
 
 export default function ElectionsModule() {
+  const reduced = useReducedMotion()
   const [items, setItems] = useState<Election[]>([])
   const [loading, setLoading] = useState(true)
   const [q, setQ] = useState("")
@@ -383,7 +385,7 @@ export default function ElectionsModule() {
                           <YAxis allowDecimals={false} tick={{ fontSize: 11 }} />
                           <Tooltip />
                           <Legend />
-                          <Bar dataKey="voix" name="Voix" fill="oklch(0.55 0.13 165)" radius={[4, 4, 0, 0]} />
+                          <Bar dataKey="voix" name="Voix" fill="oklch(0.55 0.13 165)" radius={[4, 4, 0, 0]} isAnimationActive={!reduced} animationDuration={600} />
                         </BarChart>
                       </ResponsiveContainer>
                     </div>

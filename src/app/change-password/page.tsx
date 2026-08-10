@@ -63,7 +63,7 @@ export default function ChangePasswordPage() {
       <motion.div
         initial={{ opacity: 0, y: 18, scale: 0.98 }}
         animate={{ opacity: 1, y: 0, scale: 1 }}
-        transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
+        transition={{ type: "spring", bounce: 0, duration: 0.4 }}
         className="w-full max-w-md"
       >
         <div className="rounded-2xl border border-white/10 bg-white/95 dark:bg-slate-900/95 backdrop-blur shadow-2xl shadow-black/40 overflow-hidden">

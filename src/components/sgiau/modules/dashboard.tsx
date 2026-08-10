@@ -11,6 +11,7 @@ import {
   PieChart, Pie, Cell, BarChart, Bar, Legend,
 } from "recharts"
 import { useSgiau } from "@/lib/sgiau/store"
+import { useReducedMotion } from "framer-motion"
 import { MEMBER_STATUS_COLORS, MEMBER_STATUS_LABELS, PAYMENT_MODE_LABELS } from "@/lib/sgiau/constants"
 import { Badge } from "@/components/ui/badge"
 import { formatDate } from "@/lib/sgiau/format"
@@ -29,6 +30,7 @@ const PIE_COLORS = ["oklch(0.55 0.13 160)", "oklch(0.6 0.13 200)", "oklch(0.7 0.
 
 export default function DashboardModule() {
   const { setModule } = useSgiau()
+  const reduced = useReducedMotion()
   const [data, setData] = useState<DashData | null>(null)
   const [loading, setLoading] = useState(true)
 
@@ -91,8 +93,8 @@ export default function DashboardModule() {
                   <XAxis dataKey="label" tick={{ fontSize: 12 }} stroke="oklch(0.6 0.02 160)" />
                   <YAxis tick={{ fontSize: 11 }} stroke="oklch(0.6 0.02 160)" tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`} />
                   <Tooltip formatter={(v: number) => v.toLocaleString("fr-FR") + " FCFA"} contentStyle={{ borderRadius: 8, border: "1px solid oklch(0.9 0.01 155)" }} />
-                  <Area type="monotone" dataKey="revenue" name="Recettes" stroke="oklch(0.55 0.13 160)" strokeWidth={2} fill="url(#gRev)" />
-                  <Area type="monotone" dataKey="spend" name="Dépenses" stroke="oklch(0.62 0.2 25)" strokeWidth={2} fill="url(#gSpend)" />
+                  <Area type="monotone" dataKey="revenue" name="Recettes" stroke="oklch(0.55 0.13 160)" strokeWidth={2} fill="url(#gRev)" isAnimationActive={!reduced} animationDuration={600} />
+                  <Area type="monotone" dataKey="spend" name="Dépenses" stroke="oklch(0.62 0.2 25)" strokeWidth={2} fill="url(#gSpend)" isAnimationActive={!reduced} animationDuration={600} />
                 </AreaChart>
               </ResponsiveContainer>
             </SectionCard>
@@ -100,7 +102,7 @@ export default function DashboardModule() {
             <SectionCard title="Membres par filière" description="Répartition">
               <ResponsiveContainer width="100%" height={280}>
                 <PieChart>
-                  <Pie data={data.byFaculty} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={90} innerRadius={45} paddingAngle={2}>
+                  <Pie data={data.byFaculty} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={90} innerRadius={45} paddingAngle={2} isAnimationActive={!reduced} animationDuration={600}>
                     {data.byFaculty.map((_, i) => (
                       <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />
                     ))}
@@ -156,7 +158,7 @@ export default function DashboardModule() {
                   <XAxis type="number" tick={{ fontSize: 11 }} stroke="oklch(0.6 0.02 160)" />
                   <YAxis type="category" dataKey="name" tick={{ fontSize: 11 }} stroke="oklch(0.6 0.02 160)" width={90} />
                   <Tooltip contentStyle={{ borderRadius: 8 }} />
-                  <Bar dataKey="value" name="Paiements" fill="oklch(0.55 0.13 160)" radius={[0, 6, 6, 0]} />
+                  <Bar dataKey="value" name="Paiements" fill="oklch(0.55 0.13 160)" radius={[0, 6, 6, 0]} isAnimationActive={!reduced} animationDuration={600} />
                 </BarChart>
               </ResponsiveContainer>
             </SectionCard>

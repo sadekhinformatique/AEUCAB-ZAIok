@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { motion } from "framer-motion"
+import { AnimatePresence, motion } from "framer-motion"
 import { GraduationCap, Lock, User, LogIn, ShieldCheck, AlertTriangle } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -50,7 +50,7 @@ export default function LoginPage() {
       <motion.div
         initial={{ opacity: 0, y: 18, scale: 0.98 }}
         animate={{ opacity: 1, y: 0, scale: 1 }}
-        transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
+        transition={{ type: "spring", bounce: 0, duration: 0.4 }}
         className="w-full max-w-md"
       >
         <div className="rounded-2xl border border-white/10 bg-white/95 dark:bg-slate-900/95 backdrop-blur shadow-2xl shadow-black/40 overflow-hidden">
@@ -65,17 +65,21 @@ export default function LoginPage() {
 
           {/* Form */}
           <form onSubmit={submit} className="px-8 pb-8 space-y-4">
-            {error && (
-              <motion.div
-                initial={{ opacity: 0, height: 0 }}
-                animate={{ opacity: 1, height: "auto" }}
-                className="flex items-start gap-2 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2.5 text-xs text-rose-700 dark:border-rose-500/30 dark:bg-rose-500/10 dark:text-rose-300"
-                role="alert"
-              >
-                <AlertTriangle className="h-4 w-4 shrink-0 mt-px" />
-                <span>{error}</span>
-              </motion.div>
-            )}
+            <AnimatePresence initial={false}>
+              {error && (
+                <motion.div
+                  initial={{ opacity: 0, y: -6 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -6 }}
+                  transition={{ type: "spring", bounce: 0, duration: 0.3 }}
+                  className="flex items-start gap-2 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2.5 text-xs text-rose-700 dark:border-rose-500/30 dark:bg-rose-500/10 dark:text-rose-300"
+                  role="alert"
+                >
+                  <AlertTriangle className="h-4 w-4 shrink-0 mt-px" />
+                  <span>{error}</span>
+                </motion.div>
+              )}
+            </AnimatePresence>
 
             <div className="space-y-1.5">
               <Label htmlFor="username" className="text-xs font-medium">

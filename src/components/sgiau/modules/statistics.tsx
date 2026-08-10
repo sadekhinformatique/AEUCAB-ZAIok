@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react"
 import { PageHeader, SectionCard, Money, LoadingState } from "@/components/sgiau/ui"
 import { BarChart3, TrendingUp, TrendingDown, Wallet, Award } from "lucide-react"
+import { useReducedMotion } from "framer-motion"
 import {
   Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis,
   PieChart, Pie, Cell, BarChart, Bar, Legend,
@@ -26,6 +27,7 @@ const PIE_COLORS = [
 ]
 
 export default function StatisticsModule() {
+  const reduced = useReducedMotion()
   const [data, setData] = useState<StatsData | null>(null)
   const [loading, setLoading] = useState(true)
 
@@ -79,8 +81,8 @@ export default function StatisticsModule() {
               <YAxis tick={{ fontSize: 11 }} stroke="oklch(0.6 0.02 160)" tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`} />
               <Tooltip formatter={(v: number) => v.toLocaleString("fr-FR") + " FCFA"} contentStyle={{ borderRadius: 8, border: "1px solid oklch(0.9 0.01 155)" }} />
               <Legend wrapperStyle={{ fontSize: 12 }} />
-              <Area type="monotone" dataKey="revenue" name="Recettes" stroke="oklch(0.55 0.13 160)" strokeWidth={2} fill="url(#r)" />
-              <Area type="monotone" dataKey="spend" name="Dépenses" stroke="oklch(0.62 0.2 25)" strokeWidth={2} fill="url(#s)" />
+              <Area type="monotone" dataKey="revenue" name="Recettes" stroke="oklch(0.55 0.13 160)" strokeWidth={2} fill="url(#r)" isAnimationActive={!reduced} animationDuration={600} />
+              <Area type="monotone" dataKey="spend" name="Dépenses" stroke="oklch(0.62 0.2 25)" strokeWidth={2} fill="url(#s)" isAnimationActive={!reduced} animationDuration={600} />
             </AreaChart>
           </ResponsiveContainer>
         </SectionCard>
@@ -100,6 +102,7 @@ export default function StatisticsModule() {
                   innerRadius={70}
                   outerRadius={100}
                   paddingAngle={2}
+                  isAnimationActive={!reduced} animationDuration={600}
                 >
                   <Cell fill="oklch(0.55 0.13 160)" />
                   <Cell fill="oklch(0.85 0.05 60)" />
@@ -120,7 +123,7 @@ export default function StatisticsModule() {
         <SectionCard title="Répartition par filière" description="Membres" contentClassName="pt-4">
           <ResponsiveContainer width="100%" height={300}>
             <PieChart>
-              <Pie data={data.byFaculty} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={100} innerRadius={50} paddingAngle={2}>
+              <Pie data={data.byFaculty} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={100} innerRadius={50} paddingAngle={2} isAnimationActive={!reduced} animationDuration={600}>
                 {data.byFaculty.map((_, i) => <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />)}
               </Pie>
               <Tooltip contentStyle={{ borderRadius: 8 }} />
@@ -132,7 +135,7 @@ export default function StatisticsModule() {
         <SectionCard title="Répartition par sexe" description="Membres" contentClassName="pt-4">
           <ResponsiveContainer width="100%" height={300}>
             <PieChart>
-              <Pie data={data.bySex} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={100} innerRadius={50} paddingAngle={2}>
+              <Pie data={data.bySex} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={100} innerRadius={50} paddingAngle={2} isAnimationActive={!reduced} animationDuration={600}>
                 {data.bySex.map((_, i) => <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />)}
               </Pie>
               <Tooltip contentStyle={{ borderRadius: 8 }} />
@@ -148,7 +151,7 @@ export default function StatisticsModule() {
               <XAxis dataKey="name" tick={{ fontSize: 11 }} stroke="oklch(0.6 0.02 160)" />
               <YAxis tick={{ fontSize: 11 }} stroke="oklch(0.6 0.02 160)" />
               <Tooltip contentStyle={{ borderRadius: 8 }} />
-              <Bar dataKey="value" name="Membres" fill="oklch(0.55 0.13 160)" radius={[6, 6, 0, 0]} />
+              <Bar dataKey="value" name="Membres" fill="oklch(0.55 0.13 160)" radius={[6, 6, 0, 0]} isAnimationActive={!reduced} animationDuration={600} />
             </BarChart>
           </ResponsiveContainer>
         </SectionCard>
@@ -160,7 +163,7 @@ export default function StatisticsModule() {
               <XAxis type="number" tick={{ fontSize: 11 }} stroke="oklch(0.6 0.02 160)" tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`} />
               <YAxis type="category" dataKey="name" tick={{ fontSize: 11 }} stroke="oklch(0.6 0.02 160)" width={120} />
               <Tooltip formatter={(v: number) => v.toLocaleString("fr-FR") + " FCFA"} contentStyle={{ borderRadius: 8 }} />
-              <Bar dataKey="value" name="Montant payé" fill="oklch(0.6 0.16 300)" radius={[0, 6, 6, 0]} />
+              <Bar dataKey="value" name="Montant payé" fill="oklch(0.6 0.16 300)" radius={[0, 6, 6, 0]} isAnimationActive={!reduced} animationDuration={600} />
             </BarChart>
           </ResponsiveContainer>
         </SectionCard>
@@ -168,7 +171,7 @@ export default function StatisticsModule() {
         <SectionCard title="Répartition dépenses par catégorie" description="Dépenses validées" className="lg:col-span-2" contentClassName="pt-4">
           <ResponsiveContainer width="100%" height={320}>
             <PieChart>
-              <Pie data={data.expensesByCategory} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={110} label={(e: { name?: string; value?: number }) => `${e.name ?? ""}`}>
+              <Pie data={data.expensesByCategory} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={110} label={(e: { name?: string; value?: number }) => `${e.name ?? ""}`} isAnimationActive={!reduced} animationDuration={600}>
                 {data.expensesByCategory.map((_, i) => <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />)}
               </Pie>
               <Tooltip formatter={(v: number) => v.toLocaleString("fr-FR") + " FCFA"} contentStyle={{ borderRadius: 8 }} />

@@ -13,8 +13,8 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
     include: { user: { select: { id: true, fullName: true, username: true } } },
   })
   if (!item) return err("Entrée d'audit introuvable", 404)
-  let before = null
-  let after = null
+  let before: unknown = null
+  let after: unknown = null
   try { before = item.beforeData ? JSON.parse(item.beforeData) : null } catch { before = item.beforeData }
   try { after = item.afterData ? JSON.parse(item.afterData) : null } catch { after = item.afterData }
   return ok(serialize({ ...item, before, after }))

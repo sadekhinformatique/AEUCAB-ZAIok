@@ -20,7 +20,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
   // Sign action
   if (body.action === "sign" || body.sign) {
     const userId = await getCurrentUserId()
-    const user = await db.user.findUnique({ where: { id: userId } })
+    const user = userId ? await db.user.findUnique({ where: { id: userId } }) : null
     const fullName = user?.fullName ?? "Signataire"
     const ts = Date.now()
     const signatureHash = simpleHash(`${before.title}|${ts}|${userId}`)

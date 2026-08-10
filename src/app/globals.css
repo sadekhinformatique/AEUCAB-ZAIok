@@ -140,8 +140,33 @@
   background: oklch(0.7 0.05 160);
 }
 
-html {
-  scroll-behavior: smooth;
+/* Smooth anchor scrolling + theme changes — only when the user allows motion (apple-design §14) */
+@media (prefers-reduced-motion: no-preference) {
+  html {
+    scroll-behavior: smooth;
+  }
+  body,
+  .bg-background,
+  .bg-card,
+  .bg-popover,
+  .bg-sidebar {
+    transition:
+      background-color 0.3s ease,
+      border-color 0.3s ease,
+      color 0.3s ease;
+  }
+}
+
+/* Reduced motion: neutralize sonner toast entrance/exit animations */
+@media (prefers-reduced-motion: reduce) {
+  [data-sonner-toaster] [data-sonner-toast] {
+    animation: none !important;
+    transition: none !important;
+  }
+  /* Vaul drawer: snap open/close instead of sliding (apple-design §14) */
+  [data-vaul-drawer-direction] {
+    transition: none !important;
+  }
 }
 
 /* Print styles for receipts / cards */

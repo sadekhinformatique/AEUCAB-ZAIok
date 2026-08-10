@@ -43,7 +43,7 @@ export async function POST(req: NextRequest) {
       inventoryNo,
       name: name.trim(),
       category: category || null,
-      purchasePrice: num(purchasePrice),
+      purchasePrice: num(purchasePrice) ?? 0,
       currentValue: num(currentValue) ?? num(purchasePrice) ?? 0,
       condition: condition || "GOOD",
       location: location || null,
