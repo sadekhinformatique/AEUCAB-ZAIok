@@ -20,7 +20,7 @@ import { QrBlock } from "@/components/sgiau/qr-block"
 import { formatDate } from "@/lib/sgiau/format"
 import {
   APP_NAME, UCAB_FULL_NAME, FILIERES, LEVELS, isAP,
-  birthDateError, MIN_STUDENT_AGE, MAX_STUDENT_AGE,
+  birthDateError, ageFromBirthDate, MIN_STUDENT_AGE, MAX_STUDENT_AGE,
 } from "@/lib/sgiau/constants"
 import {
   HomeTab, PaymentsTab, DocumentsTab, RequestsTab, ProfileTab,
@@ -376,6 +376,15 @@ export function MemberApp() {
                   value={regForm.birthDate}
                   onChange={(e) => setRegForm({ ...regForm, birthDate: e.target.value })}
                 />
+                {regForm.birthDate && (() => {
+                  const err = birthDateError(regForm.birthDate)
+                  const age = ageFromBirthDate(regForm.birthDate)
+                  return err ? (
+                    <p className="text-[10px] text-rose-500">{err}</p>
+                  ) : age !== null ? (
+                    <p className="text-[10px] text-muted-foreground">Âge calculé : <span className="font-medium">{age} ans</span></p>
+                  ) : null
+                })()}
               </div>
             </div>
             <div className="space-y-1.5">

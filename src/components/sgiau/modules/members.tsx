@@ -24,7 +24,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { toast } from "sonner"
 import {
   MEMBER_STATUS_COLORS, MEMBER_STATUS_LABELS, FILIERES, LEVELS, LEVEL_LABELS,
-  isAP, birthDateError, MIN_STUDENT_AGE, MAX_STUDENT_AGE,
+  isAP, birthDateError, ageFromBirthDate, MIN_STUDENT_AGE, MAX_STUDENT_AGE,
 } from "@/lib/sgiau/constants"
 import { formatDate, formatDateTime, toCSV, downloadCSV, initials } from "@/lib/sgiau/format"
 import { QrBlock } from "@/components/sgiau/qr-block"
@@ -316,7 +316,18 @@ export default function MembersModule() {
                 <SelectContent><SelectItem value="M">Homme</SelectItem><SelectItem value="F">Femme</SelectItem></SelectContent>
               </Select>
             </Field>
-            <Field label="Date de naissance"><Input type="date" min={minBirthDate} max={maxBirthDate} value={form.birthDate} onChange={(e) => setForm({ ...form, birthDate: e.target.value })} /></Field>
+            <Field label="Date de naissance">
+              <Input type="date" min={minBirthDate} max={maxBirthDate} value={form.birthDate} onChange={(e) => setForm({ ...form, birthDate: e.target.value })} />
+              {form.birthDate && (() => {
+                const err = birthDateError(form.birthDate)
+                const age = ageFromBirthDate(form.birthDate)
+                return err ? (
+                  <p className="text-xs text-rose-500">{err}</p>
+                ) : age !== null ? (
+                  <p className="text-xs text-muted-foreground">Âge calculé : <span className="font-medium">{age} ans</span></p>
+                ) : null
+              })()}
+            </Field>
             <Field label="Téléphone"><Input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} /></Field>
             <Field label="Email"><Input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} /></Field>
             <Field label="Filière">
