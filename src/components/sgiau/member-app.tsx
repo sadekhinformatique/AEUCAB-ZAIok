@@ -49,7 +49,9 @@ export function MemberApp() {
   const [regSaving, setRegSaving] = useState(false)
   const [regForm, setRegForm] = useState({
     firstName: "", lastName: "", sex: "M", birthDate: "", phone: "", email: "", address: "",
-    faculty: "", level: "", username: "", password: "",
+    faculty: "", level: "", department: "",
+    academicYear: `${new Date().getFullYear()}-${new Date().getFullYear() + 1}`,
+    username: "", password: "",
   })
 
   // Nouvelle demande
@@ -281,8 +283,11 @@ export function MemberApp() {
           </form>
         ) : (
           <form onSubmit={register} className="mt-6 w-full space-y-3">
-            <p className="text-center text-[11px] font-medium text-muted-foreground">
-              Inscription — vos informations intègrent automatiquement le registre des membres
+            <p className="text-center text-xs font-semibold text-primary">
+              Nouvelle demande d'adhésion
+            </p>
+            <p className="text-center text-[11px] text-muted-foreground">
+              Renseignez vos informations — elles intègrent automatiquement le registre des membres et seront validées par le bureau
             </p>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
@@ -342,6 +347,16 @@ export function MemberApp() {
                 </Select>
               </div>
             </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label className="text-xs font-medium">Année universitaire</Label>
+                <Input value={regForm.academicYear} onChange={(e) => setRegForm({ ...regForm, academicYear: e.target.value })} placeholder="2026-2027" />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs font-medium">Département (option)</Label>
+                <Input value={regForm.department} onChange={(e) => setRegForm({ ...regForm, department: e.target.value })} placeholder="Informatique…" />
+              </div>
+            </div>
             <div className="border-t pt-3">
               <p className="mb-3 text-[11px] font-medium text-muted-foreground">
                 Identifiants de connexion
@@ -359,7 +374,7 @@ export function MemberApp() {
             </div>
             <Button type="submit" className="h-10 w-full gap-2" disabled={regSaving}>
               {regSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <ShieldCheck className="h-4 w-4" />}
-              {regSaving ? "Inscription…" : "S'inscrire"}
+              {regSaving ? "Envoi…" : "Déposer la demande d'adhésion"}
             </Button>
             <button
               type="button"

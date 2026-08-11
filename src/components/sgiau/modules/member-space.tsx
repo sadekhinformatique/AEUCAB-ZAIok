@@ -31,6 +31,7 @@ export interface MemberProfile {
     email: string | null; phone: string | null; faculty: string | null
     department: string | null; level: string | null; academicYear: string | null
     status: string; qrCode: string | null
+    adhesion: { status: string; refusalReason?: string | null; createdAt?: string } | null
     card: any | null
     payments: any[]
   }
@@ -387,6 +388,46 @@ function LoginScreen({ loading, memberSearch, setMemberSearch, filteredMembers, 
   )
 }
 
+function AdhesionStatusCard({ adhesion }: { adhesion: { status: string; refusalReason?: string | null; createdAt?: string } }) {
+  const s = adhesion.status
+  const styles: Record<string, { label: string; sub: string; cls: string; icon: React.ReactNode }> = {
+    PENDING: {
+      label: "Demande d'adhésion en attente",
+      sub: "En cours de validation par le bureau (secrétaire → président)",
+      cls: "border-amber-300 bg-amber-50 text-amber-800",
+      icon: <AlertCircle className="h-4 w-4" />,
+    },
+    SG_APPROVED: {
+      label: "Adhésion validée par le secrétaire",
+      sub: "En attente de l'approbation du président",
+      cls: "border-sky-300 bg-sky-50 text-sky-800",
+      icon: <CheckCircle2 className="h-4 w-4" />,
+    },
+    PRESIDENT_APPROVED: {
+      label: "Adhésion validée — bienvenue !",
+      sub: "Votre carte de membre est disponible",
+      cls: "border-emerald-300 bg-emerald-50 text-emerald-800",
+      icon: <CheckCircle2 className="h-4 w-4" />,
+    },
+    REFUSED: {
+      label: "Demande d'adhésion refusée",
+      sub: adhesion.refusalReason || "Contactez le bureau de l'amicale pour plus d'informations",
+      cls: "border-rose-300 bg-rose-50 text-rose-800",
+      icon: <AlertCircle className="h-4 w-4" />,
+    },
+  }
+  const st = styles[s] ?? styles.PENDING
+  return (
+    <div className={`flex items-start gap-2 rounded-lg border p-3 ${st.cls}`}>
+      <span className="mt-px shrink-0">{st.icon}</span>
+      <div>
+        <p className="text-xs font-semibold">{st.label}</p>
+        <p className="mt-0.5 text-[11px] opacity-80">{st.sub}</p>
+      </div>
+    </div>
+  )
+}
+
 export function HomeTab({ profile, announcements, setTab }: { profile: MemberProfile; announcements: Announcement[]; setTab: (t: Tab) => void }) {
   const m = profile.member
   return (
@@ -396,6 +437,11 @@ export function HomeTab({ profile, announcements, setTab }: { profile: MemberPro
         <p className="text-lg font-semibold">{m.firstName} {m.lastName}</p>
         <p className="text-[10px] opacity-80 font-mono">{m.matricule}</p>
       </div>
+
+      {/* Suivi de la demande d'adhésion */}
+      {m.adhesion && (
+        <AdhesionStatusCard adhesion={m.adhesion} />
+      )}
 
       {/* Quick stats */}
       <div className="grid grid-cols-2 gap-2">

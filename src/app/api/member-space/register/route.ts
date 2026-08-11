@@ -20,6 +20,12 @@ export async function POST(req: NextRequest) {
     faculty, department, level, academicYear, username, password,
   } = body
 
+  const normalizedFaculty = normalizeFiliere(faculty)
+  const normalizedLevel = normalizeLevel(level)
+  const now = new Date().getFullYear()
+  const year = academicYear || `${now}-${now + 1}`
+  const submittedForm = { firstName, lastName, sex, phone, email, faculty: normalizedFaculty, department, level: normalizedLevel, academicYear: year }
+
   if (!firstName || !lastName) return err("Le nom et le prénom sont requis", 422)
   if (!username || !password) return err("Identifiant et mot de passe requis", 422)
 
@@ -37,10 +43,9 @@ export async function POST(req: NextRequest) {
     if (emailExists) return err("Cet email est déjà utilisé", 409)
   }
 
-  const year = academicYear || new Date().getFullYear().toString()
   const count = await db.member.count()
   const seq = count + 1
-  const matricule = `${year}-${String(seq).padStart(4, "0")}`
+  const matricule = `${String(year).slice(0, 4)}-${String(seq).padStart(4, "0")}`
 
   const member = await db.member.create({
     data: {
@@ -52,9 +57,9 @@ export async function POST(req: NextRequest) {
       phone: phone ? String(phone) : null,
       email: memberEmail,
       address: address ? String(address) : null,
-      faculty: normalizeFiliere(faculty),
+      faculty: normalizedFaculty,
       department: department ? String(department) : null,
-      level: normalizeLevel(level),
+      level: normalizedLevel,
       academicYear: year,
       status: "PENDING",
       qrCode: `SGIAU-${matricule}`,
@@ -65,7 +70,7 @@ export async function POST(req: NextRequest) {
   await db.adhesion.create({
     data: {
       memberId: member.id,
-      form: JSON.stringify({ submittedAt: new Date().toISOString() }),
+      form: JSON.stringify(submittedForm),
       status: "PENDING",
     },
   })
