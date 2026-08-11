@@ -22,6 +22,12 @@ export const metadata: Metadata = {
     "Gestion de l'amicale universitaire : membres, cotisations, comptabilité, activités, élections, documents et plus.",
   keywords: ["amicale", "universitaire", "gestion", "cotisations", "SGIAU"],
   authors: [{ name: "SGIAU" }],
+  themeColor: "#086808",
+  appleWebApp: { capable: true, title: "Espace membre", statusBarStyle: "default" },
+  icons: {
+    icon: "/icons/icon-192.png",
+    apple: "/icons/icon-192.png",
+  },
 };
 
 export default function RootLayout({

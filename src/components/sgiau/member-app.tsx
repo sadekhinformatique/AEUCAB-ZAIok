@@ -26,6 +26,11 @@ import {
 
 type Status = "loading" | "anon" | "ready"
 
+interface BeforeInstallPromptEvent extends Event {
+  prompt: () => Promise<void>
+  userChoice: Promise<{ outcome: "accepted" | "dismissed" }>
+}
+
 export function MemberApp() {
   const [status, setStatus] = useState<Status>("loading")
   const [profile, setProfile] = useState<MemberProfile | null>(null)
@@ -46,6 +51,26 @@ export function MemberApp() {
 
   // Reçu à afficher
   const [printReceipt, setPrintReceipt] = useState<any | null>(null)
+
+  // PWA — installation sur l'écran d'accueil
+  const [installEvt, setInstallEvt] = useState<BeforeInstallPromptEvent | null>(null)
+
+  useEffect(() => {
+    if ("serviceWorker" in navigator) {
+      navigator.serviceWorker.register("/sw.js").catch(() => {})
+    }
+    const onBeforeInstall = (e: Event) => {
+      e.preventDefault()
+      setInstallEvt(e as BeforeInstallPromptEvent)
+    }
+    const onInstalled = () => setInstallEvt(null)
+    window.addEventListener("beforeinstallprompt", onBeforeInstall)
+    window.addEventListener("appinstalled", onInstalled)
+    return () => {
+      window.removeEventListener("beforeinstallprompt", onBeforeInstall)
+      window.removeEventListener("appinstalled", onInstalled)
+    }
+  }, [])
 
   const loadData = useCallback(async () => {
     try {
@@ -213,6 +238,19 @@ export function MemberApp() {
           <ShieldCheck className="h-3.5 w-3.5" />
           Application mobile des membres — session sécurisée
         </p>
+
+        {installEvt && (
+          <button
+            onClick={async () => {
+              await installEvt.prompt()
+              setInstallEvt(null)
+            }}
+            className="mt-4 inline-flex items-center gap-1.5 rounded-lg border border-primary/40 px-3 py-1.5 text-[11px] font-medium text-primary hover:bg-primary/10"
+          >
+            <Download className="h-3.5 w-3.5" />
+            Ajouter à l'écran d'accueil
+          </button>
+        )}
       </div>
     )
   }
