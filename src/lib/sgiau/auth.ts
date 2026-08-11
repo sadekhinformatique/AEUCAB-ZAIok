@@ -19,16 +19,31 @@ export const hashPassword = (pw: string): Promise<string> => bcrypt.hash(pw, 12)
 export const verifyPassword = (pw: string, hash: string): Promise<boolean> => bcrypt.compare(pw, hash)
 
 /**
- * Strong random temporary password (16 chars, unambiguous alphabet).
+ * Strong random temporary password (16 chars, unambiguous alphabet),
+ * guaranteed to satisfy the password policy (upper, lower, digit, special).
  * Used for accounts created by the adhesion workflow — the password is never
  * stored or printed; the member must use the forced-change flow instead.
  */
 export function generatePassword(): string {
-  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#$%"
+  const sets = [
+    "ABCDEFGHJKLMNPQRSTUVWXYZ",
+    "abcdefghijkmnopqrstuvwxyz",
+    "23456789",
+    "!@#$%",
+  ]
+  const all = sets.join("")
+  const bytes = crypto.getRandomValues(new Uint8Array(32))
   let out = ""
-  const bytes = crypto.getRandomValues(new Uint8Array(16))
-  for (let i = 0; i < 16; i++) out += chars[bytes[i] % chars.length]
-  return out
+  // 12 caractères aléatoires puis 1 caractère garanti de chaque classe.
+  for (let i = 0; i < 12; i++) out += all[bytes[i] % all.length]
+  for (let i = 0; i < 4; i++) out += sets[i][bytes[12 + i] % sets[i].length]
+  // Mélange (Fisher–Yates) pour ne pas laisser les classes groupées.
+  const arr = out.split("")
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = bytes[(16 + i) % 32] % (i + 1)
+    ;[arr[i], arr[j]] = [arr[j], arr[i]]
+  }
+  return arr.join("")
 }
 
 /** User id from the session cookie, or null. */

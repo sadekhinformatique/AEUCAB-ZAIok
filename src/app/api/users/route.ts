@@ -2,6 +2,7 @@ import { NextRequest } from "next/server"
 import { db } from "@/lib/db"
 import { ok, err, audit, serialize, getCurrentUserId, requireAdmin } from "@/lib/sgiau/api"
 import { hashPassword } from "@/lib/sgiau/auth"
+import { passwordError } from "@/lib/sgiau/password-policy"
 
 export const dynamic = "force-dynamic"
 
@@ -52,6 +53,9 @@ export async function POST(req: NextRequest) {
   const body = await req.json()
   const { fullName, username, email, role, password, memberId } = body
   if (!fullName || !username || !email || !password) return err("Champs manquants", 422)
+
+  const pwError = passwordError(String(password))
+  if (pwError) return err(pwError, 422)
 
   const exists = await db.user.findUnique({ where: { username } }).catch(() => null)
   if (exists) return err("Ce nom d'utilisateur existe déjà", 409)

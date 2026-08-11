@@ -2,11 +2,10 @@ import { NextRequest } from "next/server"
 import { db } from "@/lib/db"
 import { ok, err, audit, serialize } from "@/lib/sgiau/api"
 import { AUTH_COOKIE, cookieOptions, getSessionUser, hashPassword, verifyPassword } from "@/lib/sgiau/auth"
+import { passwordError } from "@/lib/sgiau/password-policy"
 import { makeToken } from "@/lib/sgiau/token"
 
 export const dynamic = "force-dynamic"
-
-const MIN_PASSWORD_LENGTH = 8
 
 export async function POST(req: NextRequest) {
   const user = await getSessionUser()
@@ -17,9 +16,8 @@ export async function POST(req: NextRequest) {
   const newPassword = String(body.newPassword ?? "")
 
   if (!currentPassword || !newPassword) return err("Champs requis", 422)
-  if (newPassword.length < MIN_PASSWORD_LENGTH) {
-    return err(`Le mot de passe doit contenir au moins ${MIN_PASSWORD_LENGTH} caractères`, 422)
-  }
+  const pwError = passwordError(newPassword)
+  if (pwError) return err(pwError, 422)
   if (newPassword === currentPassword) {
     return err("Le nouveau mot de passe doit être différent de l'actuel", 422)
   }

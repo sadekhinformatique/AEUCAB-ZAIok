@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label"
 import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Switch } from "@/components/ui/switch"
+import { passwordError, passwordPolicyHint } from "@/lib/sgiau/password-policy"
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table"
@@ -99,6 +100,11 @@ export default function UsersModule() {
   async function save() {
     if (!form.fullName || !form.username || !form.email || !form.password) {
       toast.error("Tous les champs sont requis")
+      return
+    }
+    const pwError = passwordError(form.password)
+    if (pwError) {
+      toast.error(pwError)
       return
     }
     setSaving(true)
@@ -324,6 +330,7 @@ export default function UsersModule() {
             </Field>
             <Field label="Mot de passe *">
               <Input type="password" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} />
+              <p className="text-[11px] text-muted-foreground">{passwordPolicyHint()}</p>
             </Field>
             <Field label="Matricule membre (optionnel)"><Input value={form.memberId} onChange={(e) => setForm({ ...form, memberId: e.target.value })} placeholder="Lier à un membre existant" /></Field>
           </div>

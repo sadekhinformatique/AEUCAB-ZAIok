@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { APP_FULL_NAME, APP_NAME } from "@/lib/sgiau/constants"
+import { passwordError, passwordPolicyHint } from "@/lib/sgiau/password-policy"
 
 export default function ChangePasswordPage() {
   const [currentPassword, setCurrentPassword] = useState("")
@@ -21,8 +22,9 @@ export default function ChangePasswordPage() {
       setError("Veuillez remplir tous les champs.")
       return
     }
-    if (newPassword.length < 8) {
-      setError("Le nouveau mot de passe doit contenir au moins 8 caractères.")
+    const pwError = passwordError(newPassword)
+    if (pwError) {
+      setError(pwError)
       return
     }
     if (newPassword !== confirmPassword) {
@@ -130,6 +132,7 @@ export default function ChangePasswordPage() {
                   disabled={loading}
                 />
               </div>
+              <p className="text-[11px] text-muted-foreground">{passwordPolicyHint()}</p>
             </div>
 
             <div className="space-y-1.5">
