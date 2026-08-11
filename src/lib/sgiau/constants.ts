@@ -51,14 +51,24 @@ export const UCAB_CENTRES: {
 
 // ============================================================
 // STRUCTURE ACADÉMIQUE — configuration officielle de l'université
-// L'Année Préparatoire (AP) est hors cycle Licence :
+// L'Année Préparatoire (AP) est une FILIÈRE sans niveau :
 // AP → L1 → L2 → L3. Aucun L4, M1, M2, Master ou Doctorat.
 // ============================================================
 
-export const LEVELS = ["AP", "L1", "L2", "L3"] as const
+// Filières officielles : 3 filières de Licence + l'Année Préparatoire (AP)
+export const FILIERES = ["Informatique et Gestion", "Électromécanique", "Administration", "AP"] as const
+export type Filiere = (typeof FILIERES)[number]
+
+// L'Année Préparatoire n'a pas de niveau : quand elle est sélectionnée
+// comme filière, le champ « Niveau » est désactivé.
+export const AP_FILIERE = "AP"
+export function isAP(filiere: string | null | undefined): boolean {
+  return !!filiere && filiere.trim().toUpperCase() === "AP"
+}
+
+export const LEVELS = ["L1", "L2", "L3"] as const
 export type Level = (typeof LEVELS)[number]
 
-export const AP_LEVEL = "AP"
 export const LICENCE_LEVELS = ["L1", "L2", "L3"] as const
 
 export const LEVEL_LABELS: Record<string, string> = {
@@ -71,11 +81,8 @@ export const LEVEL_LABELS: Record<string, string> = {
 // Progression officielle : AP → L1 → L2 → L3
 export const LEVEL_SEQUENCE: readonly string[] = LEVELS
 
-// Filières du cycle Licence (exactement 3)
-export const FILIERES = ["Informatique et Gestion", "Électromécanique", "Administration"] as const
-export type Filiere = (typeof FILIERES)[number]
-
 // Anciens niveaux retirés → niveau terminal de la Licence
+// (AP n'est plus un niveau : c'est une filière sans niveau → null)
 export const LEGACY_LEVELS: Record<string, string> = {
   L4: "L3",
   M1: "L3",
@@ -112,8 +119,8 @@ export function normalizeLevel(value: string | null | undefined): string | null 
   return LEGACY_LEVELS[upper] ?? null
 }
 
-// Corrige une valeur de filière vers l'une des 3 filières officielles ;
-// les anciennes facultés / intitulés sont convertis.
+// Corrige une valeur de filière vers l'une des filières officielles
+// (3 filières de Licence + AP) ; les anciennes facultés sont converties.
 export function normalizeFiliere(value: string | null | undefined): string | null {
   if (!value) return null
   const v = value.trim()

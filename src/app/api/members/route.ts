@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server"
 import { db } from "@/lib/db"
 import { ok, err, audit, serialize, getCurrentUserId } from "@/lib/sgiau/api"
-import { normalizeFiliere, normalizeLevel } from "@/lib/sgiau/constants"
+import { normalizeFiliere, normalizeLevel, isAP } from "@/lib/sgiau/constants"
 
 export const dynamic = "force-dynamic"
 
@@ -44,6 +44,7 @@ export async function POST(req: NextRequest) {
   const seq = count + 1
   const matricule = `${year}-${String(seq).padStart(4, "0")}`
 
+  const normalizedFaculty = normalizeFiliere(faculty)
   const member = await db.member.create({
     data: {
       matricule,
@@ -51,9 +52,10 @@ export async function POST(req: NextRequest) {
       sex: sex || "M",
       birthDate: birthDate ? new Date(birthDate) : null,
       phone, email, address,
-      faculty: normalizeFiliere(faculty),
+      faculty: normalizedFaculty,
       department,
-      level: normalizeLevel(level),
+      // L'Année Préparatoire est une filière sans niveau
+      level: isAP(normalizedFaculty) ? null : normalizeLevel(level),
       academicYear: year,
       status: status || "ACTIVE",
       qrCode: `SGIAU-${matricule}`,

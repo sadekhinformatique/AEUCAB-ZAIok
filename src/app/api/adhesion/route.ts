@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server"
 import { db } from "@/lib/db"
 import { ok, err, audit, serialize, getCurrentUserId } from "@/lib/sgiau/api"
-import { normalizeFiliere, normalizeLevel } from "@/lib/sgiau/constants"
+import { normalizeFiliere, normalizeLevel, isAP } from "@/lib/sgiau/constants"
 
 export const dynamic = "force-dynamic"
 
@@ -51,7 +51,8 @@ export async function POST(req: NextRequest) {
   if (!firstName || !lastName) return err("Le nom et le prénom sont requis", 422)
 
   const normalizedFaculty = normalizeFiliere(faculty)
-  const normalizedLevel = normalizeLevel(level)
+  // L'Année Préparatoire est une filière sans niveau
+  const normalizedLevel = isAP(normalizedFaculty) ? null : normalizeLevel(level)
   const userId = await getCurrentUserId()
   const year = academicYear || new Date().getFullYear().toString()
   const count = await db.member.count()

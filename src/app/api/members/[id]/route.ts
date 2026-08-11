@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server"
 import { db } from "@/lib/db"
 import { ok, err, audit, serialize } from "@/lib/sgiau/api"
-import { normalizeFiliere, normalizeLevel } from "@/lib/sgiau/constants"
+import { normalizeFiliere, normalizeLevel, isAP } from "@/lib/sgiau/constants"
 
 export const dynamic = "force-dynamic"
 
@@ -38,6 +38,9 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
       else data[k] = body[k]
     }
   }
+  // L'Année Préparatoire est une filière sans niveau
+  const finalFaculty = "faculty" in body ? normalizeFiliere(body.faculty) : before.faculty
+  if (isAP(finalFaculty)) data.level = null
   const after = await db.member.update({ where: { id }, data })
   await audit({ action: "UPDATE", entity: "Member", entityId: id, before, after, description: `Modification membre ${before.matricule}` })
   return ok(serialize(after))

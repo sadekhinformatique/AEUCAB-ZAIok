@@ -148,7 +148,8 @@ export async function seedDatabase(force = false) {
     const firstName = sex === "M" ? pick(FIRST_NAMES_M) : pick(FIRST_NAMES_F)
     const lastName = pick(LAST_NAMES)
     const filiere = pick(FILIERES)
-    const level = pick(LEVELS)
+    // L'Année Préparatoire (AP) est une filière sans niveau
+    const level = filiere === "AP" ? null : pick(LEVELS)
     const status = Math.random() > 0.12 ? "ACTIVE" : Math.random() > 0.5 ? "PENDING" : "SUSPENDED"
     const matricule = `${academicYear}-${String(i).padStart(4, "0")}`
     const m = await db.member.create({

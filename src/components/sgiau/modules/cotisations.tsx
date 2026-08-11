@@ -22,7 +22,7 @@ import {
   Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription,
 } from "@/components/ui/sheet"
 import { toast } from "sonner"
-import { COTISATION_KIND_LABELS, PAYMENT_MODE_LABELS, PAYMENT_STATUS_LABELS, FILIERES, LEVELS, LEVEL_LABELS } from "@/lib/sgiau/constants"
+import { COTISATION_KIND_LABELS, PAYMENT_MODE_LABELS, PAYMENT_STATUS_LABELS, FILIERES, LEVELS, LEVEL_LABELS, isAP } from "@/lib/sgiau/constants"
 import { formatCurrency, formatDate, formatDateTime, toCSV, downloadCSV } from "@/lib/sgiau/format"
 import { useSgiau } from "@/lib/sgiau/store"
 
@@ -398,7 +398,7 @@ export default function CotisationsModule() {
             </div>
             <div className="space-y-1.5">
               <Label className="text-xs font-medium">Filière (option)</Label>
-              <Select value={typeForm.faculty} onValueChange={(v) => setTypeForm({ ...typeForm, faculty: v === "ALL" ? "" : v })}>
+              <Select value={typeForm.faculty} onValueChange={(v) => setTypeForm({ ...typeForm, faculty: v === "ALL" ? "" : v, ...(v === "AP" ? { level: "" } : {}) })}>
                 <SelectTrigger><SelectValue placeholder="Toutes" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="ALL">Toutes</SelectItem>
@@ -408,13 +408,14 @@ export default function CotisationsModule() {
             </div>
             <div className="space-y-1.5">
               <Label className="text-xs font-medium">Niveau (option)</Label>
-              <Select value={typeForm.level} onValueChange={(v) => setTypeForm({ ...typeForm, level: v === "ALL" ? "" : v })}>
-                <SelectTrigger><SelectValue placeholder="Tous" /></SelectTrigger>
+              <Select value={typeForm.level} disabled={isAP(typeForm.faculty)} onValueChange={(v) => setTypeForm({ ...typeForm, level: v === "ALL" ? "" : v })}>
+                <SelectTrigger><SelectValue placeholder={isAP(typeForm.faculty) ? "Aucun niveau" : "Tous"} /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="ALL">Tous</SelectItem>
                   {LEVELS.map((l) => <SelectItem key={l} value={l}>{LEVEL_LABELS[l]}</SelectItem>)}
                 </SelectContent>
               </Select>
+              {isAP(typeForm.faculty) && <p className="text-xs text-muted-foreground">L'Année Préparatoire n'a pas de niveau.</p>}
             </div>
             <div className="space-y-1.5">
               <Label className="text-xs font-medium">Année universitaire</Label>

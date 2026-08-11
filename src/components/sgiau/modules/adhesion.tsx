@@ -18,7 +18,7 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "@/components/ui/dialog"
 import { toast } from "sonner"
-import { ADHESION_STATUS_LABELS, FILIERES, LEVELS, LEVEL_LABELS } from "@/lib/sgiau/constants"
+import { ADHESION_STATUS_LABELS, FILIERES, LEVELS, LEVEL_LABELS, isAP } from "@/lib/sgiau/constants"
 import { formatDate, formatDateTime, initials } from "@/lib/sgiau/format"
 import { cn } from "@/lib/utils"
 
@@ -309,17 +309,18 @@ export default function AdhesionModule() {
             <Field label="Email"><Input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} /></Field>
             <Field label="Année universitaire"><Input value={form.academicYear} onChange={(e) => setForm({ ...form, academicYear: e.target.value })} /></Field>
             <Field label="Filière">
-              <Select value={form.faculty} onValueChange={(v) => setForm({ ...form, faculty: v })}>
+              <Select value={form.faculty} onValueChange={(v) => setForm({ ...form, faculty: v, ...(isAP(v) ? { level: "" } : {}) })}>
                 <SelectTrigger><SelectValue placeholder="—" /></SelectTrigger>
                 <SelectContent>{FILIERES.map((f) => <SelectItem key={f} value={f}>{f}</SelectItem>)}</SelectContent>
               </Select>
             </Field>
             <Field label="Département (option)"><Input value={form.department} onChange={(e) => setForm({ ...form, department: e.target.value })} /></Field>
             <Field label="Niveau">
-              <Select value={form.level} onValueChange={(v) => setForm({ ...form, level: v })}>
-                <SelectTrigger><SelectValue placeholder="—" /></SelectTrigger>
+              <Select value={form.level} disabled={isAP(form.faculty)} onValueChange={(v) => setForm({ ...form, level: v })}>
+                <SelectTrigger><SelectValue placeholder={isAP(form.faculty) ? "Aucun niveau" : "—"} /></SelectTrigger>
                 <SelectContent>{LEVELS.map((l) => <SelectItem key={l} value={l}>{LEVEL_LABELS[l]}</SelectItem>)}</SelectContent>
               </Select>
+              {isAP(form.faculty) && <p className="text-xs text-muted-foreground">L'Année Préparatoire n'a pas de niveau.</p>}
             </Field>
           </div>
           <DialogFooter>

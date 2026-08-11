@@ -18,7 +18,7 @@ import { toast } from "sonner"
 import { Money } from "@/components/sgiau/ui"
 import { QrBlock } from "@/components/sgiau/qr-block"
 import { formatDate } from "@/lib/sgiau/format"
-import { APP_NAME, UCAB_FULL_NAME, FILIERES, LEVELS } from "@/lib/sgiau/constants"
+import { APP_NAME, UCAB_FULL_NAME, FILIERES, LEVELS, isAP } from "@/lib/sgiau/constants"
 import {
   HomeTab, PaymentsTab, DocumentsTab, RequestsTab, ProfileTab,
   type MemberProfile, type Announcement, type Tab, REQUEST_TYPES,
@@ -330,7 +330,7 @@ export function MemberApp() {
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <Label className="text-xs font-medium">Filière</Label>
-                <Select value={regForm.faculty} onValueChange={(v) => setRegForm({ ...regForm, faculty: v })}>
+                <Select value={regForm.faculty} onValueChange={(v) => setRegForm({ ...regForm, faculty: v, ...(isAP(v) ? { level: "" } : {}) })}>
                   <SelectTrigger><SelectValue placeholder="Choisir…" /></SelectTrigger>
                   <SelectContent>
                     {FILIERES.map((f) => <SelectItem key={f} value={f}>{f}</SelectItem>)}
@@ -339,12 +339,13 @@ export function MemberApp() {
               </div>
               <div className="space-y-1.5">
                 <Label className="text-xs font-medium">Niveau</Label>
-                <Select value={regForm.level} onValueChange={(v) => setRegForm({ ...regForm, level: v })}>
-                  <SelectTrigger><SelectValue placeholder="Choisir…" /></SelectTrigger>
+                <Select value={regForm.level} disabled={isAP(regForm.faculty)} onValueChange={(v) => setRegForm({ ...regForm, level: v })}>
+                  <SelectTrigger><SelectValue placeholder={isAP(regForm.faculty) ? "Aucun niveau" : "Choisir…"} /></SelectTrigger>
                   <SelectContent>
                     {LEVELS.map((l) => <SelectItem key={l} value={l}>{l}</SelectItem>)}
                   </SelectContent>
                 </Select>
+                {isAP(regForm.faculty) && <p className="text-[10px] text-muted-foreground">L'Année Préparatoire n'a pas de niveau.</p>}
               </div>
             </div>
             <div className="grid grid-cols-2 gap-3">
