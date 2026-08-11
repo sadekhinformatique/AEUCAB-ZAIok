@@ -12,7 +12,7 @@ export function QrBlock({ value, size = 96, className }: { value: string; size?:
 
   useEffect(() => {
     let alive = true
-    QRCode.toDataURL(value, { width: size, margin: 1, color: { dark: "#0a0f0d", light: "#ffffff" } })
+    QRCode.toDataURL(value, { width: size, margin: 1, color: { dark: "#086808", light: "#ffffff" } })
       .then((url) => {
         if (alive) setDataUrl(url)
       })

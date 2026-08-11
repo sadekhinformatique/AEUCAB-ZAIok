@@ -13,6 +13,7 @@ import { Progress } from "@/components/ui/progress"
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table"
+import { UCAB_FULL_NAME, UCAB_ORG_NAME } from "@/lib/sgiau/constants"
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select"
@@ -442,6 +443,13 @@ export default function VotesModule() {
       {/* Printable report (hidden on screen) */}
       {detail && (
         <div className="hidden print:block fixed inset-0 bg-white p-8 z-50">
+          <div className="flex items-center gap-3 border-b-2 border-[#086808] pb-4 mb-6">
+            <img src="/logo-aeucab.png" alt="Logo de l'amicale" className="h-14 w-14 rounded-full border-2 border-[#086808]/30 bg-white object-cover" />
+            <div>
+              <p className="font-bold text-lg leading-tight">{UCAB_FULL_NAME}</p>
+              <p className="text-xs text-gray-500">{UCAB_ORG_NAME} · Rapport de vote</p>
+            </div>
+          </div>
           <h1 className="text-2xl font-bold">{detail.title}</h1>
           <p className="text-sm text-gray-600 mb-4">{detail.question}</p>
           <p className="text-xs text-gray-500 mb-6">Période : {formatDate(detail.startDate)} → {formatDate(detail.endDate)}</p>
