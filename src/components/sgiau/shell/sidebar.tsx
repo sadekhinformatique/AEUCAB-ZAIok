@@ -66,7 +66,7 @@ export function Sidebar() {
         </button>
       </div>
 
-      <ScrollArea className="flex-1 scroll-thin">
+      <ScrollArea className="flex-1 min-h-0 scroll-thin overscroll-contain">
         <nav ref={navRef} onKeyDown={handleNavKeyDown} className="px-3 py-4 space-y-5">
           {MODULE_GROUPS.map((group) => {
             const isCollapsed = !!collapsed[group.group]
@@ -122,13 +122,13 @@ export function Sidebar() {
   return (
     <>
       {/* Desktop sidebar — static */}
-      <aside className="hidden lg:sticky lg:flex top-0 h-screen w-72 shrink-0 bg-sidebar text-sidebar-foreground flex-col">
+      <aside className="hidden lg:sticky lg:flex top-0 h-screen w-72 shrink-0 bg-sidebar text-sidebar-foreground flex-col overflow-hidden">
         {content}
       </aside>
 
       {/* Mobile drawer — vaul: 1:1 drag tracking, momentum projection, velocity handoff */}
       <Drawer open={sidebarOpen} onOpenChange={setSidebarOpen} direction="left">
-        <DrawerContent className="w-72! bg-sidebar! text-sidebar-foreground lg:hidden">
+        <DrawerContent className="w-72! bg-sidebar! text-sidebar-foreground lg:hidden overflow-hidden">
           {content}
         </DrawerContent>
       </Drawer>
