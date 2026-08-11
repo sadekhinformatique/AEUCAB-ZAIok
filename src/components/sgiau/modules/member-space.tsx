@@ -20,6 +20,7 @@ import {
 } from "@/components/ui/dialog"
 import { toast } from "sonner"
 import { formatDate, formatDateTime, initials } from "@/lib/sgiau/format"
+import { UCAB_FULL_NAME } from "@/lib/sgiau/constants"
 import { QrBlock } from "@/components/sgiau/qr-block"
 
 interface SimpleMember { id: string; matricule: string; firstName: string; lastName: string; faculty: string | null; level: string | null }
@@ -176,7 +177,8 @@ export default function MemberSpaceModule() {
           </DialogHeader>
           <div className="space-y-3 py-2 text-sm">
             <div className="text-center pb-3 border-b">
-              <p className="font-semibold text-base">Amicale Universitaire</p>
+              <img src="/logo-aeucab.png" alt="Logo de l'amicale" className="mx-auto mb-2 h-12 w-12 rounded-full border-2 border-primary/30 bg-white object-cover" />
+              <p className="font-semibold text-base">{UCAB_FULL_NAME}</p>
               <p className="text-xs text-muted-foreground">Reçu officiel de paiement</p>
             </div>
             <div className="flex justify-between">

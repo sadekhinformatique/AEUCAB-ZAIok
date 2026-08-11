@@ -20,7 +20,7 @@ import { Label } from "@/components/ui/label"
 import { toast } from "sonner"
 import { formatDate } from "@/lib/sgiau/format"
 import { QrBlock } from "@/components/sgiau/qr-block"
-import { APP_FULL_NAME } from "@/lib/sgiau/constants"
+import { APP_FULL_NAME, UCAB_FULL_NAME, UCAB_MOTTO } from "@/lib/sgiau/constants"
 import { initials } from "@/lib/sgiau/format"
 
 interface CardMember {
@@ -257,14 +257,17 @@ export default function CardsModule() {
             <div className="space-y-4">
               {/* Card visual */}
               <div className="print-area mx-auto" style={{ width: "320px" }}>
-                <div className="rounded-2xl overflow-hidden shadow-xl border bg-gradient-to-br from-emerald-700 to-teal-800 text-white print:shadow-none">
+                <div className="rounded-2xl overflow-hidden shadow-xl border bg-gradient-to-br from-[#0a6e0a] to-[#064e06] text-white print:shadow-none">
                   {/* Header */}
                   <div className="px-4 py-2 bg-black/20 flex items-center justify-between">
-                    <div>
-                      <p className="text-[10px] uppercase tracking-wider opacity-80">Amicale Universitaire</p>
-                      <p className="text-xs font-bold leading-tight">SGIAU</p>
+                    <div className="flex items-center gap-2 min-w-0">
+                      <img src="/logo-aeucab.png" alt="Logo de l'amicale" className="h-7 w-7 shrink-0 rounded-full bg-white object-cover" />
+                      <div className="min-w-0">
+                        <p className="text-[9px] uppercase tracking-wider opacity-80 truncate">{UCAB_FULL_NAME}</p>
+                        <p className="text-xs font-bold leading-tight">SGIAU</p>
+                      </div>
                     </div>
-                    <CreditCard className="h-5 w-5 opacity-80" />
+                    <CreditCard className="h-5 w-5 opacity-80 shrink-0" />
                   </div>
                   {/* Body */}
                   <div className="p-4 flex gap-3">
@@ -284,7 +287,7 @@ export default function CardsModule() {
                     <span>Expire : {formatDate(detail.expiryDate)}</span>
                   </div>
                 </div>
-                <p className="text-[9px] text-muted-foreground text-center mt-1 print:hidden">{APP_FULL_NAME}</p>
+                <p className="text-[9px] text-muted-foreground text-center mt-1 print:hidden">« {UCAB_MOTTO} » · {APP_FULL_NAME}</p>
               </div>
 
               <div className="print:hidden flex gap-2">

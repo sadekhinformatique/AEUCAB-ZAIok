@@ -18,7 +18,7 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "@/components/ui/dialog"
 import { toast } from "sonner"
-import { APP_FULL_NAME, PAYMENT_MODE_LABELS } from "@/lib/sgiau/constants"
+import { APP_FULL_NAME, PAYMENT_MODE_LABELS, UCAB_FULL_NAME, UCAB_ORG_NAME } from "@/lib/sgiau/constants"
 import { formatCurrency, formatDate, formatDateTime, toCSV, downloadCSV } from "@/lib/sgiau/format"
 import { QrBlock } from "@/components/sgiau/qr-block"
 
@@ -373,10 +373,10 @@ export default function ReceiptsModule() {
               {/* Header */}
               <div className="flex items-start justify-between border-b-2 border-primary pb-4 mb-4">
                 <div className="flex items-center gap-3">
-                  <div className="h-14 w-14 rounded-lg bg-primary/15 flex items-center justify-center text-primary font-bold text-xl">A</div>
+                  <img src="/logo-aeucab.png" alt="Logo de l'amicale" className="h-14 w-14 rounded-full border-2 border-primary/30 bg-white object-cover" />
                   <div>
-                    <p className="font-bold text-lg leading-tight">Amicale Universitaire</p>
-                    <p className="text-xs text-muted-foreground">{APP_FULL_NAME}</p>
+                    <p className="font-bold text-lg leading-tight">{UCAB_FULL_NAME}</p>
+                    <p className="text-xs text-muted-foreground">{UCAB_ORG_NAME} — {APP_FULL_NAME}</p>
                     <p className="text-xs text-muted-foreground">Exercice {viewReceipt.payment?.paymentDate ? new Date(viewReceipt.payment.paymentDate).getFullYear() : new Date().getFullYear()}</p>
                   </div>
                 </div>
