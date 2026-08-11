@@ -23,7 +23,7 @@ export async function GET(req: NextRequest) {
   const cards = await db.memberCard.findMany({
     where,
     orderBy: { createdAt: "desc" },
-    include: { member: { select: { id: true, matricule: true, firstName: true, lastName: true, faculty: true, qrCode: true, sex: true } } },
+    include: { member: { select: { id: true, matricule: true, firstName: true, lastName: true, faculty: true, level: true, birthDate: true, email: true, phone: true, qrCode: true, sex: true } } },
   })
   return ok(serialize(cards))
 }

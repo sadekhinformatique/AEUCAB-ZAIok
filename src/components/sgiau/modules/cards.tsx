@@ -24,7 +24,8 @@ import { APP_FULL_NAME, UCAB_FULL_NAME, UCAB_MOTTO } from "@/lib/sgiau/constants
 import { initials } from "@/lib/sgiau/format"
 
 interface CardMember {
-  id: string; matricule: string; firstName: string; lastName: string; faculty: string | null; qrCode: string | null; sex: string
+  id: string; matricule: string; firstName: string; lastName: string; faculty: string | null; level: string | null
+  birthDate: string | null; email: string | null; phone: string | null; qrCode: string | null; sex: string
 }
 interface Card {
   id: string; cardNumber: string; memberId: string; issueDate: string; expiryDate: string | null
@@ -254,40 +255,62 @@ export default function CardsModule() {
             <DialogTitle>Carte membre — {detail?.cardNumber}</DialogTitle>
           </DialogHeader>
           {detail && (
-            <div className="space-y-4">
-              {/* Card visual */}
+            <div className="space-y-4">              {/* Card visual — modèle portrait : bandeau rouge ondulé, photo, nom, QR/signature, grille 2×3 */}
               <div className="print-area mx-auto" style={{ width: "320px" }}>
-                <div className="rounded-2xl overflow-hidden shadow-xl border bg-gradient-to-br from-[#0a6e0a] to-[#064e06] text-white print:shadow-none">
-                  {/* Header */}
-                  <div className="px-4 py-2 bg-black/20 flex items-center justify-between">
-                    <div className="flex items-center gap-2 min-w-0">
-                      <img src="/logo-aeucab.png" alt="Logo de l'amicale" className="h-7 w-7 shrink-0 rounded-full bg-white object-cover" />
-                      <div className="min-w-0">
-                        <p className="text-[9px] uppercase tracking-wider opacity-80 truncate">{UCAB_FULL_NAME}</p>
-                        <p className="text-xs font-bold leading-tight">SGIAU</p>
+                <div className="overflow-hidden rounded-xl border border-gray-200 bg-white text-gray-900 shadow-xl print:shadow-none">
+                  {/* Bandeau rouge ondulé */}
+                  <div className="relative bg-gradient-to-b from-[#c21212] to-[#8a0a0a] px-4 pt-4 text-center text-white">
+                    <p className="text-[8px] uppercase tracking-[0.26em] text-white/85">{UCAB_FULL_NAME}</p>
+                    <div className="mt-1.5 flex items-center justify-center gap-2">
+                      <img src="/logo-aeucab.png" alt="Logo de l'amicale" className="h-8 w-8 rounded-full bg-white object-cover" />
+                      <p className="text-xl font-black tracking-wide leading-none">AEUCAB-ZAI</p>
+                    </div>
+                    <p className="mt-1 text-[8px] italic text-white/75">« {UCAB_MOTTO} »</p>
+                    <svg className="relative mt-3 w-full text-white" viewBox="0 0 320 14" preserveAspectRatio="none" aria-hidden="true">
+                      <path d="M0 9 C28 2 60 14 92 8 C124 2 158 14 190 8 C222 2 254 14 286 8 C300 5 312 9 320 6 L320 14 L0 14 Z" fill="currentColor" />
+                    </svg>
+                  </div>
+
+                  {/* Corps : photo + identité + QR/signature */}
+                  <div className="flex items-start gap-3 p-4">
+                    <div className="shrink-0 rounded-lg border-2 border-[#b80808]/40 p-0.5">
+                      <Avatar className="h-20 w-20 rounded-md">
+                        <AvatarFallback className="bg-red-50 text-lg font-bold text-[#b80808]">
+                          {initials(detail.member.firstName, detail.member.lastName)}
+                        </AvatarFallback>
+                      </Avatar>
+                    </div>
+                    <div className="min-w-0 flex-1 pt-1">
+                      <p className="truncate text-[15px] font-bold leading-tight">{detail.member.firstName} {detail.member.lastName}</p>
+                      <p className="truncate text-[11px] font-semibold text-[#b80808]">
+                        {detail.member.faculty ?? "—"}{detail.member.level ? ` · ${detail.member.level}` : ""}
+                      </p>
+                      <p className="mt-1 font-mono text-[9px] text-gray-500">N° {detail.cardNumber}</p>
+                    </div>
+                    <div className="shrink-0 text-center">
+                      <QrBlock value={detail.qrCode ?? detail.cardNumber} size={64} />
+                      <p className="mt-0.5 font-serif text-[9px] italic text-gray-400">Signature</p>
+                    </div>
+                  </div>
+
+                  {/* Grille de données 2×3 */}
+                  <div className="grid grid-cols-3 divide-x divide-dotted divide-gray-300 border-t-2 border-[#b80808] bg-gray-50/70 text-center">
+                    {[
+                      { label: "Matricule", value: detail.member.matricule },
+                      { label: "Adhésion", value: formatDate(detail.issueDate) },
+                      { label: "Email", value: detail.member.email ?? "—" },
+                      { label: "Naissance", value: formatDate(detail.member.birthDate) },
+                      { label: "Expire", value: formatDate(detail.expiryDate) },
+                      { label: "Téléphone", value: detail.member.phone ?? "—" },
+                    ].map((f) => (
+                      <div key={f.label} className="px-1 py-2">
+                        <p className="text-[7px] uppercase tracking-wider text-gray-400">{f.label}</p>
+                        <p className="mt-0.5 truncate text-[9px] font-semibold text-gray-700">{f.value}</p>
                       </div>
-                    </div>
-                    <CreditCard className="h-5 w-5 opacity-80 shrink-0" />
-                  </div>
-                  {/* Body */}
-                  <div className="p-4 flex gap-3">
-                    <div className="rounded-xl bg-white text-emerald-800 p-3 flex items-center justify-center" style={{ width: "84px", height: "84px" }}>
-                      <QrBlock value={detail.qrCode ?? detail.cardNumber} size={72} />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <Avatar className="h-12 w-12 mb-1 border-2 border-white/30"><AvatarFallback className="bg-white/20 text-white text-sm">{initials(detail.member.firstName, detail.member.lastName)}</AvatarFallback></Avatar>
-                      <p className="font-semibold leading-tight truncate">{detail.member.firstName} {detail.member.lastName}</p>
-                      <p className="text-[10px] opacity-90 font-mono">{detail.member.matricule}</p>
-                      <p className="text-[10px] opacity-80 truncate">{detail.member.faculty ?? "—"}</p>
-                    </div>
-                  </div>
-                  {/* Footer */}
-                  <div className="px-4 py-2 bg-black/20 text-[10px] flex justify-between">
-                    <span>Émis : {formatDate(detail.issueDate)}</span>
-                    <span>Expire : {formatDate(detail.expiryDate)}</span>
+                    ))}
                   </div>
                 </div>
-                <p className="text-[9px] text-muted-foreground text-center mt-1 print:hidden">« {UCAB_MOTTO} » · {APP_FULL_NAME}</p>
+                <p className="mt-1 text-center text-[9px] text-muted-foreground print:hidden">« {UCAB_MOTTO} » · {APP_FULL_NAME}</p>
               </div>
 
               <div className="print:hidden flex gap-2">
