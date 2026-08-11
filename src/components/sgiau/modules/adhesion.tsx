@@ -18,7 +18,10 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "@/components/ui/dialog"
 import { toast } from "sonner"
-import { ADHESION_STATUS_LABELS, FILIERES, LEVELS, LEVEL_LABELS, isAP } from "@/lib/sgiau/constants"
+import {
+  ADHESION_STATUS_LABELS, FILIERES, LEVELS, LEVEL_LABELS, isAP,
+  birthDateError, ageFromBirthDate, MIN_STUDENT_AGE, MAX_STUDENT_AGE,
+} from "@/lib/sgiau/constants"
 import { formatDate, formatDateTime, initials } from "@/lib/sgiau/format"
 import { cn } from "@/lib/utils"
 
@@ -57,9 +60,13 @@ const PIPELINE = [
 ]
 
 const emptyForm = {
-  firstName: "", lastName: "", sex: "M", phone: "", email: "",
+  firstName: "", lastName: "", sex: "M", birthDate: "", phone: "", email: "",
   faculty: "", department: "", level: "", academicYear: "2024-2025",
 }
+
+// Bornes du sélecteur de date : étudiants de 18 à 70 ans (règles Sénégal)
+const minBirthDate = `${new Date().getFullYear() - MAX_STUDENT_AGE}-01-01`
+const maxBirthDate = `${new Date().getFullYear() - MIN_STUDENT_AGE}-12-31`
 
 export default function AdhesionModule() {
   const [items, setItems] = useState<AdhesionItem[]>([])
@@ -93,6 +100,11 @@ export default function AdhesionModule() {
   async function save() {
     if (!form.firstName.trim() || !form.lastName.trim()) {
       toast.error("Le nom et le prénom sont requis")
+      return
+    }
+    const bdError = birthDateError(form.birthDate)
+    if (bdError) {
+      toast.error(bdError)
       return
     }
     setSaving(true)
@@ -307,6 +319,18 @@ export default function AdhesionModule() {
             </Field>
             <Field label="Téléphone"><Input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} /></Field>
             <Field label="Email"><Input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} /></Field>
+            <Field label="Date de naissance">
+              <Input type="date" min={minBirthDate} max={maxBirthDate} value={form.birthDate} onChange={(e) => setForm({ ...form, birthDate: e.target.value })} />
+              {form.birthDate && (() => {
+                const err = birthDateError(form.birthDate)
+                const age = ageFromBirthDate(form.birthDate)
+                return err ? (
+                  <p className="text-xs text-rose-500">{err}</p>
+                ) : age !== null ? (
+                  <p className="text-xs text-muted-foreground">Âge calculé : <span className="font-medium">{age} ans</span></p>
+                ) : null
+              })()}
+            </Field>
             <Field label="Année universitaire"><Input value={form.academicYear} onChange={(e) => setForm({ ...form, academicYear: e.target.value })} /></Field>
             <Field label="Filière">
               <Select value={form.faculty} onValueChange={(v) => setForm({ ...form, faculty: v, ...(isAP(v) ? { level: "" } : {}) })}>

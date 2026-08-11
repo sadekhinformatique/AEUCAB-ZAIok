@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server"
 import { db } from "@/lib/db"
 import { ok, err, audit, serialize, getCurrentUserId } from "@/lib/sgiau/api"
-import { normalizeFiliere, normalizeLevel, isAP } from "@/lib/sgiau/constants"
+import { normalizeFiliere, normalizeLevel, isAP, birthDateError } from "@/lib/sgiau/constants"
 
 export const dynamic = "force-dynamic"
 
@@ -47,8 +47,10 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   const body = await req.json()
-  const { firstName, lastName, sex, phone, email, faculty, department, level, academicYear } = body
+  const { firstName, lastName, sex, birthDate, phone, email, faculty, department, level, academicYear } = body
   if (!firstName || !lastName) return err("Le nom et le prénom sont requis", 422)
+  const bdError = birthDateError(birthDate)
+  if (bdError) return err(bdError, 422)
 
   const normalizedFaculty = normalizeFiliere(faculty)
   // L'Année Préparatoire est une filière sans niveau
@@ -64,6 +66,7 @@ export async function POST(req: NextRequest) {
       matricule,
       firstName, lastName,
       sex: sex || "M",
+      birthDate: birthDate ? new Date(birthDate) : null,
       phone, email,
       faculty: normalizedFaculty, department, level: normalizedLevel,
       academicYear: year,
@@ -75,7 +78,7 @@ export async function POST(req: NextRequest) {
   const adhesion = await db.adhesion.create({
     data: {
       memberId: member.id,
-      form: JSON.stringify({ firstName, lastName, sex, phone, email, faculty: normalizedFaculty, department, level: normalizedLevel, academicYear }),
+      form: JSON.stringify({ firstName, lastName, sex, birthDate, phone, email, faculty: normalizedFaculty, department, level: normalizedLevel, academicYear }),
       status: "PENDING",
     },
     include: { member: true },
