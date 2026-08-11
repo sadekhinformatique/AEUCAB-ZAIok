@@ -51,7 +51,7 @@ export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ 
   const before = await db.member.findUnique({
     where: { id },
     include: {
-      user: { select: { username: true } },
+      user: { select: { id: true, username: true, role: true } },
       _count: {
         select: {
           receipts: true,
@@ -68,16 +68,15 @@ export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ 
   })
   if (!before) return err("Membre introuvable", 404)
 
-  // Les relations Restrict (reçus, bulletins, candidatures, emprunts, compte
-  // utilisateur) empêchent une suppression SQL — on le signale clairement au
-  // lieu de renvoyer une erreur 500 générique.
+  // Les relations Restrict (reçus, bulletins, candidatures, emprunts)
+  // empêchent une suppression SQL — on les protège pour préserver la
+  // comptabilité et l'intégrité des élections.
   const blockers: string[] = []
   if (before._count.receipts > 0) blockers.push(`${before._count.receipts} reçu(s)`)
   if (before._count.payments > 0) blockers.push(`${before._count.payments} paiement(s)`)
   if (before._count.votes > 0) blockers.push(`${before._count.votes} bulletin(s) de vote`)
   if (before._count.electionCands > 0) blockers.push(`${before._count.electionCands} candidature(s)`)
   if (before._count.borrows > 0) blockers.push(`${before._count.borrows} emprunt(s)`)
-  if (before.user) blockers.push(`un compte utilisateur (${before.user.username})`)
   if (blockers.length > 0) {
     return err(
       `Suppression impossible : le membre a ${blockers.join(", ")}. Passez-le au statut ARCHIVÉ pour le retirer des listes actives.`,
@@ -85,11 +84,37 @@ export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ 
     )
   }
 
+  // Compte utilisateur lié (créé automatiquement à l'inscription) : on le
+  // supprime avec le membre si c'est un compte membre ordinaire (MEMBER/CUSTOM).
+  // Les comptes de bureau ou admin sont protégés — archivez le membre alors.
+  let deletedAccount: string | null = null
+  if (before.user) {
+    const privileged = ["PRESIDENT", "SECRETAIRE", "TRESORIER", "CAISSIER", "COMMISSAIRE", "ADMIN_IT"]
+    if (privileged.includes(before.user.role)) {
+      return err(
+        `Suppression impossible : le membre est lié au compte de bureau « ${before.user.username} ». Passez-le au statut ARCHIVÉ pour le retirer des listes actives.`,
+        409
+      )
+    }
+    try {
+      await db.user.delete({ where: { id: before.user.id } })
+      deletedAccount = before.user.username
+    } catch {
+      return err("Suppression impossible : compte utilisateur lié. Passez le membre au statut ARCHIVÉ.", 409)
+    }
+  }
+
   try {
     await db.member.delete({ where: { id } })
   } catch {
     return err("Suppression impossible : enregistrements liés. Passez le membre au statut ARCHIVÉ.", 409)
   }
-  await audit({ action: "DELETE", entity: "Member", entityId: id, before, description: `Suppression membre ${before.matricule}` })
-  return ok({ ok: true })
+  await audit({
+    action: "DELETE",
+    entity: "Member",
+    entityId: id,
+    before,
+    description: `Suppression membre ${before.matricule}${deletedAccount ? ` (compte utilisateur ${deletedAccount} supprimé)` : ""}`,
+  })
+  return ok({ ok: true, deletedAccount })
 }
