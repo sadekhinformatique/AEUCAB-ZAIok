@@ -2,11 +2,18 @@
 
 import { useState } from "react"
 import { AnimatePresence, motion } from "framer-motion"
-import { GraduationCap, Lock, User, LogIn, ShieldCheck, AlertTriangle } from "lucide-react"
+import { Lock, User, LogIn, ShieldCheck, AlertTriangle, Mail, Phone } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { APP_FULL_NAME, APP_NAME } from "@/lib/sgiau/constants"
+import {
+  APP_FULL_NAME,
+  APP_NAME,
+  UCAB_EMAIL,
+  UCAB_FULL_NAME,
+  UCAB_MOTTO,
+  UCAB_PHONE,
+} from "@/lib/sgiau/constants"
 
 export default function LoginPage() {
   const [username, setUsername] = useState("")
@@ -56,11 +63,20 @@ export default function LoginPage() {
         <div className="rounded-2xl border border-white/10 bg-white/95 dark:bg-slate-900/95 backdrop-blur shadow-2xl shadow-black/40 overflow-hidden">
           {/* Header */}
           <div className="px-8 pt-8 pb-6 text-center">
-            <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 text-white shadow-lg shadow-emerald-500/30">
-              <GraduationCap className="h-7 w-7" />
+            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full border-2 border-emerald-700/30 bg-white p-1 shadow-lg shadow-emerald-700/20">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src="/logo-aeucab.png"
+                alt="Logo de l'amicale"
+                className="h-full w-full rounded-full object-cover"
+              />
             </div>
-            <h1 className="text-xl font-bold tracking-tight">{APP_NAME}</h1>
-            <p className="mt-1 text-xs text-muted-foreground">{APP_FULL_NAME}</p>
+            <p className="text-[11px] font-semibold uppercase tracking-widest text-emerald-700 dark:text-emerald-400">
+              {UCAB_FULL_NAME}
+            </p>
+            <h1 className="mt-1 text-xl font-bold tracking-tight">{APP_NAME}</h1>
+            <p className="mt-0.5 text-xs text-muted-foreground">{APP_FULL_NAME}</p>
+            <p className="mt-2 text-[11px] italic text-muted-foreground/80">« {UCAB_MOTTO} »</p>
           </div>
 
           {/* Form */}
@@ -131,9 +147,17 @@ export default function LoginPage() {
           </form>
         </div>
 
-        <p className="mt-4 text-center text-[11px] text-slate-400">
-          SGIAU · Next.js · PostgreSQL · v1.0
-        </p>
+        <div className="mt-4 flex items-center justify-center gap-4 text-[11px] text-slate-300">
+          <span className="inline-flex items-center gap-1">
+            <Mail className="h-3 w-3" />
+            {UCAB_EMAIL}
+          </span>
+          <span className="inline-flex items-center gap-1">
+            <Phone className="h-3 w-3" />
+            {UCAB_PHONE}
+          </span>
+        </div>
+        <p className="mt-1.5 text-center text-[10px] text-slate-500">SGIAU · Next.js · PostgreSQL · v1.0</p>
       </motion.div>
     </main>
   )

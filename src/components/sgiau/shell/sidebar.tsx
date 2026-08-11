@@ -1,12 +1,12 @@
 "use client"
 
 import { useRef } from "react"
-import { MODULE_GROUPS, APP_NAME, APP_FULL_NAME } from "@/lib/sgiau/constants"
+import { MODULE_GROUPS, APP_NAME, UCAB_FULL_NAME } from "@/lib/sgiau/constants"
 import { useSgiau } from "@/lib/sgiau/store"
 import { Icon } from "./icon"
 import { cn } from "@/lib/utils"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { GraduationCap, X } from "lucide-react"
+import { X } from "lucide-react"
 import { Drawer, DrawerContent } from "@/components/ui/drawer"
 
 export function Sidebar() {
@@ -39,12 +39,13 @@ export function Sidebar() {
   const content = (
     <>
       <div className="h-16 flex items-center gap-3 px-5 border-b border-sidebar-border">
-        <div className="rounded-lg bg-sidebar-primary text-sidebar-primary-foreground p-2">
-          <GraduationCap className="h-5 w-5" />
+        <div className="h-9 w-9 shrink-0 overflow-hidden rounded-full bg-white p-0.5 ring-2 ring-sidebar-primary/70">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/logo-aeucab.png" alt="Logo de l'amicale" className="h-full w-full rounded-full object-cover" />
         </div>
         <div className="min-w-0">
           <p className="font-bold tracking-tight leading-none">{APP_NAME}</p>
-          <p className="text-[11px] text-sidebar-foreground/60 truncate mt-1">Amicale Universitaire</p>
+          <p className="text-[11px] text-sidebar-foreground/60 truncate mt-1">{UCAB_FULL_NAME}</p>
         </div>
         <button
           className="ml-auto lg:hidden text-sidebar-foreground/70 hover:text-sidebar-foreground"

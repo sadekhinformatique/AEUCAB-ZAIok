@@ -5,6 +5,51 @@ export const APP_FULL_NAME = "Système de Gestion Intégrée de l'Amicale Univer
 export const CURRENCY = "FCFA"
 
 // ============================================================
+// UNIVERSITÉ CHEIKH AHMADOU BAMBA (UCAB) — informations officielles
+// Source : https://www.ucab.sn
+// ============================================================
+
+export const UCAB_FULL_NAME = "Université Cheikh Ahmadou Bamba"
+export const UCAB_SHORT_NAME = "UCAB"
+export const UCAB_ORG_NAME = "Amicale des Étudiants — AEUCAB-ZAI"
+export const UCAB_MOTTO = "L'Excellence au service du savoir"
+export const UCAB_EMAIL = "contact@ucab.sn"
+export const UCAB_PHONE = "+(221) 776458011"
+export const UCAB_WEBSITE = "https://www.ucab.sn"
+
+export const UCAB_CENTRES: {
+  name: string
+  faculty: string
+  location: string
+  email: string
+}[] = [
+  {
+    name: "Centre Cheikh Mouhamadou Mourtada Mbacké — Dakar",
+    faculty: "Faculté des Sciences Islamiques et Technologies",
+    location: "Dakar Mbao, face LGI Mbao",
+    email: "dakarcentre@ucab.sn",
+  },
+  {
+    name: "Centre Serigne Mame Mor Diarra Mbacké — Saint-Louis",
+    faculty: "Faculté des Technologies Agro-Alimentaires, des Sciences Économiques et Sociales",
+    location: "Saint-Louis",
+    email: "stlouiscentre@ucab.sn",
+  },
+  {
+    name: "Centre de Touba Darou Alim (siège)",
+    faculty: "Faculté des Sciences Religieuses, des Humanités et Civilisations",
+    location: "Touba Darou Alim",
+    email: "toubacentre@ucab.sn",
+  },
+  {
+    name: "Centre Serigne Saliou Mbacké — Bambey",
+    faculty: "Faculté de Développement Rural",
+    location: "Bambey",
+    email: "bambeycentre@ucab.sn",
+  },
+]
+
+// ============================================================
 // STRUCTURE ACADÉMIQUE — configuration officielle de l'université
 // L'Année Préparatoire (AP) est hors cycle Licence :
 // AP → L1 → L2 → L3. Aucun L4, M1, M2, Master ou Doctorat.
