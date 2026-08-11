@@ -2,7 +2,13 @@ import { NextRequest, NextResponse } from "next/server"
 import { AUTH_COOKIE, readToken } from "@/lib/sgiau/token"
 
 /** Endpoints reachable without a session. */
-const PUBLIC_API = ["/api/auth/login", "/api/auth/logout", "/api/auth/change-password", "/api/health"]
+const PUBLIC_API = [
+  "/api/auth/login",
+  "/api/auth/logout",
+  "/api/auth/change-password",
+  "/api/health",
+  "/api/member-space/register",
+]
 
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl

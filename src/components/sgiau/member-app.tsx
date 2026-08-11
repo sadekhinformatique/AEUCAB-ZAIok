@@ -18,7 +18,7 @@ import { toast } from "sonner"
 import { Money } from "@/components/sgiau/ui"
 import { QrBlock } from "@/components/sgiau/qr-block"
 import { formatDate } from "@/lib/sgiau/format"
-import { APP_NAME, UCAB_FULL_NAME } from "@/lib/sgiau/constants"
+import { APP_NAME, UCAB_FULL_NAME, FILIERES, LEVELS } from "@/lib/sgiau/constants"
 import {
   HomeTab, PaymentsTab, DocumentsTab, RequestsTab, ProfileTab,
   type MemberProfile, type Announcement, type Tab, REQUEST_TYPES,
@@ -43,6 +43,14 @@ export function MemberApp() {
   const [password, setPassword] = useState("")
   const [loginError, setLoginError] = useState<string | null>(null)
   const [loggingIn, setLoggingIn] = useState(false)
+
+  // Inscription
+  const [mode, setMode] = useState<"login" | "register">("login")
+  const [regSaving, setRegSaving] = useState(false)
+  const [regForm, setRegForm] = useState({
+    firstName: "", lastName: "", sex: "M", birthDate: "", phone: "", email: "", address: "",
+    faculty: "", level: "", username: "", password: "",
+  })
 
   // Nouvelle demande
   const [reqOpen, setReqOpen] = useState(false)
@@ -120,6 +128,35 @@ export function MemberApp() {
     }
   }
 
+  async function register(e: React.FormEvent) {
+    e.preventDefault()
+    setLoginError(null)
+    setRegSaving(true)
+    try {
+      const res = await fetch("/api/member-space/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(regForm),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        setLoginError(data?.error || "Erreur lors de l'inscription")
+        setRegSaving(false)
+        return
+      }
+      // Connexion automatique après l'inscription
+      await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username: regForm.username.trim(), password: regForm.password }),
+      })
+      window.location.reload()
+    } catch {
+      setLoginError("Impossible de contacter le serveur.")
+      setRegSaving(false)
+    }
+  }
+
   async function logout() {
     try {
       await fetch("/api/auth/logout", { method: "POST" })
@@ -185,7 +222,7 @@ export function MemberApp() {
 
   if (status === "anon" || !profile) {
     return (
-      <div className="min-h-screen max-w-md mx-auto flex flex-col items-center justify-center px-6 py-10 bg-gradient-to-br from-primary/15 via-background to-background">
+      <div className="mx-auto flex min-h-screen max-w-md flex-col items-center px-6 py-10 bg-gradient-to-br from-primary/15 via-background to-background">
         <img
           src="/logo-aeucab.png"
           alt="Logo de l'amicale"
@@ -194,45 +231,145 @@ export function MemberApp() {
         <h1 className="mt-4 text-xl font-bold">{APP_NAME}</h1>
         <p className="mt-1 text-center text-xs text-muted-foreground">Espace membre — {UCAB_FULL_NAME}</p>
 
-        <form onSubmit={login} className="mt-8 w-full space-y-4">
-          {loginError && (
-            <div
-              className="flex items-start gap-2 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2.5 text-xs text-rose-700"
-              role="alert"
-            >
-              <AlertCircle className="mt-px h-4 w-4 shrink-0" />
-              <span>{loginError}</span>
+        {loginError && (
+          <div
+            className="mt-4 flex w-full items-start gap-2 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2.5 text-xs text-rose-700"
+            role="alert"
+          >
+            <AlertCircle className="mt-px h-4 w-4 shrink-0" />
+            <span>{loginError}</span>
+          </div>
+        )}
+
+        {mode === "login" ? (
+          <form onSubmit={login} className="mt-6 w-full space-y-4">
+            <div className="space-y-1.5">
+              <Label htmlFor="m-username" className="text-xs font-medium">Identifiant</Label>
+              <Input
+                id="m-username"
+                autoComplete="username"
+                placeholder="Votre identifiant"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                disabled={loggingIn}
+                autoFocus
+              />
             </div>
-          )}
-          <div className="space-y-1.5">
-            <Label htmlFor="m-username" className="text-xs font-medium">Identifiant</Label>
-            <Input
-              id="m-username"
-              autoComplete="username"
-              placeholder="Votre identifiant"
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              disabled={loggingIn}
-              autoFocus
-            />
-          </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="m-password" className="text-xs font-medium">Mot de passe</Label>
-            <Input
-              id="m-password"
-              type="password"
-              autoComplete="current-password"
-              placeholder="••••••••••"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              disabled={loggingIn}
-            />
-          </div>
-          <Button type="submit" className="h-10 w-full gap-2" disabled={loggingIn}>
-            {loggingIn ? <Loader2 className="h-4 w-4 animate-spin" /> : <Lock className="h-4 w-4" />}
-            {loggingIn ? "Connexion…" : "Se connecter"}
-          </Button>
-        </form>
+            <div className="space-y-1.5">
+              <Label htmlFor="m-password" className="text-xs font-medium">Mot de passe</Label>
+              <Input
+                id="m-password"
+                type="password"
+                autoComplete="current-password"
+                placeholder="••••••••••"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                disabled={loggingIn}
+              />
+            </div>
+            <Button type="submit" className="h-10 w-full gap-2" disabled={loggingIn}>
+              {loggingIn ? <Loader2 className="h-4 w-4 animate-spin" /> : <Lock className="h-4 w-4" />}
+              {loggingIn ? "Connexion…" : "Se connecter"}
+            </Button>
+            <button
+              type="button"
+              onClick={() => { setMode("register"); setLoginError(null) }}
+              className="w-full text-center text-[11px] font-medium text-primary hover:underline"
+            >
+              Pas encore membre ? S'inscrire
+            </button>
+          </form>
+        ) : (
+          <form onSubmit={register} className="mt-6 w-full space-y-3">
+            <p className="text-center text-[11px] font-medium text-muted-foreground">
+              Inscription — vos informations intègrent automatiquement le registre des membres
+            </p>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label className="text-xs font-medium">Nom *</Label>
+                <Input value={regForm.lastName} onChange={(e) => setRegForm({ ...regForm, lastName: e.target.value })} placeholder="Nom" />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs font-medium">Prénom *</Label>
+                <Input value={regForm.firstName} onChange={(e) => setRegForm({ ...regForm, firstName: e.target.value })} placeholder="Prénom" />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label className="text-xs font-medium">Sexe</Label>
+                <Select value={regForm.sex} onValueChange={(v) => setRegForm({ ...regForm, sex: v })}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="M">Homme</SelectItem>
+                    <SelectItem value="F">Femme</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs font-medium">Date de naissance</Label>
+                <Input type="date" value={regForm.birthDate} onChange={(e) => setRegForm({ ...regForm, birthDate: e.target.value })} />
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs font-medium">Téléphone</Label>
+              <Input value={regForm.phone} onChange={(e) => setRegForm({ ...regForm, phone: e.target.value })} placeholder="+221 …" />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs font-medium">Email</Label>
+              <Input type="email" value={regForm.email} onChange={(e) => setRegForm({ ...regForm, email: e.target.value })} placeholder="vous@exemple.com" />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs font-medium">Adresse</Label>
+              <Input value={regForm.address} onChange={(e) => setRegForm({ ...regForm, address: e.target.value })} placeholder="Ville, quartier…" />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label className="text-xs font-medium">Filière</Label>
+                <Select value={regForm.faculty} onValueChange={(v) => setRegForm({ ...regForm, faculty: v })}>
+                  <SelectTrigger><SelectValue placeholder="Choisir…" /></SelectTrigger>
+                  <SelectContent>
+                    {FILIERES.map((f) => <SelectItem key={f} value={f}>{f}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs font-medium">Niveau</Label>
+                <Select value={regForm.level} onValueChange={(v) => setRegForm({ ...regForm, level: v })}>
+                  <SelectTrigger><SelectValue placeholder="Choisir…" /></SelectTrigger>
+                  <SelectContent>
+                    {LEVELS.map((l) => <SelectItem key={l} value={l}>{l}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="border-t pt-3">
+              <p className="mb-3 text-[11px] font-medium text-muted-foreground">
+                Identifiants de connexion
+              </p>
+              <div className="space-y-3">
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-medium">Identifiant *</Label>
+                  <Input value={regForm.username} onChange={(e) => setRegForm({ ...regForm, username: e.target.value })} placeholder="3 caractères min." />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-medium">Mot de passe *</Label>
+                  <Input type="password" value={regForm.password} onChange={(e) => setRegForm({ ...regForm, password: e.target.value })} placeholder="8 car. + majuscule, chiffre, symbole" />
+                </div>
+              </div>
+            </div>
+            <Button type="submit" className="h-10 w-full gap-2" disabled={regSaving}>
+              {regSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <ShieldCheck className="h-4 w-4" />}
+              {regSaving ? "Inscription…" : "S'inscrire"}
+            </Button>
+            <button
+              type="button"
+              onClick={() => { setMode("login"); setLoginError(null) }}
+              className="w-full text-center text-[11px] font-medium text-primary hover:underline"
+            >
+              J'ai déjà un compte — Se connecter
+            </button>
+          </form>
+        )}
 
         <p className="mt-8 flex items-center gap-1.5 text-center text-[10px] text-muted-foreground">
           <ShieldCheck className="h-3.5 w-3.5" />
