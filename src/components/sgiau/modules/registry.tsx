@@ -11,7 +11,6 @@ const loaders: Record<string, () => Promise<{ default: ComponentType }>> = {
   members: () => import("@/components/sgiau/modules/members"),
   adhesion: () => import("@/components/sgiau/modules/adhesion"),
   cards: () => import("@/components/sgiau/modules/cards"),
-  "member-space": () => import("@/components/sgiau/modules/member-space"),
   cotisations: () => import("@/components/sgiau/modules/cotisations"),
   receipts: () => import("@/components/sgiau/modules/receipts"),
   finance: () => import("@/components/sgiau/modules/finance"),

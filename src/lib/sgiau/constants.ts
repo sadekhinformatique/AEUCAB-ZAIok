@@ -227,7 +227,6 @@ export const MODULE_GROUPS: { group: string; modules: { id: string; label: strin
       { id: "members", label: "Membres", icon: "Users" },
       { id: "adhesion", label: "Adhésions", icon: "UserPlus" },
       { id: "cards", label: "Cartes membres", icon: "CreditCard" },
-      { id: "member-space", label: "Espace membre", icon: "Smartphone" },
     ],
   },
   {
