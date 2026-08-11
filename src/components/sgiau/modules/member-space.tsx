@@ -25,7 +25,7 @@ import { QrBlock } from "@/components/sgiau/qr-block"
 
 interface SimpleMember { id: string; matricule: string; firstName: string; lastName: string; faculty: string | null; level: string | null }
 
-interface MemberProfile {
+export interface MemberProfile {
   member: {
     id: string; matricule: string; firstName: string; lastName: string; sex: string
     email: string | null; phone: string | null; faculty: string | null
@@ -41,16 +41,16 @@ interface MemberProfile {
   }
 }
 
-interface Announcement { id: string; title: string; body: string; pinned: boolean; publishedAt: string }
+export interface Announcement { id: string; title: string; body: string; pinned: boolean; publishedAt: string }
 
-const REQUEST_TYPES: Record<string, string> = {
+export const REQUEST_TYPES: Record<string, string> = {
   CERTIFICATE: "Attestation / Certificat",
   RECEIPT: "Reçu",
   CARD_RENEWAL: "Renouvellement de carte",
   OTHER: "Autre",
 }
 
-type Tab = "home" | "payments" | "documents" | "requests" | "profile"
+export type Tab = "home" | "payments" | "documents" | "requests" | "profile"
 
 export default function MemberSpaceModule() {
   const [members, setMembers] = useState<SimpleMember[]>([])
@@ -387,7 +387,7 @@ function LoginScreen({ loading, memberSearch, setMemberSearch, filteredMembers, 
   )
 }
 
-function HomeTab({ profile, announcements, setTab }: { profile: MemberProfile; announcements: Announcement[]; setTab: (t: Tab) => void }) {
+export function HomeTab({ profile, announcements, setTab }: { profile: MemberProfile; announcements: Announcement[]; setTab: (t: Tab) => void }) {
   const m = profile.member
   return (
     <div className="p-3 space-y-3">
@@ -453,7 +453,7 @@ function HomeTab({ profile, announcements, setTab }: { profile: MemberProfile; a
   )
 }
 
-function PaymentsTab({ profile, onViewReceipt }: { profile: MemberProfile; onViewReceipt: (paymentId: string) => void }) {
+export function PaymentsTab({ profile, onViewReceipt }: { profile: MemberProfile; onViewReceipt: (paymentId: string) => void }) {
   const payments = profile.member.payments || []
   return (
     <div className="p-3 space-y-3">
@@ -498,7 +498,7 @@ function PaymentsTab({ profile, onViewReceipt }: { profile: MemberProfile; onVie
   )
 }
 
-function DocumentsTab({ documents }: { documents: any[] }) {
+export function DocumentsTab({ documents }: { documents: any[] }) {
   return (
     <div className="p-3 space-y-3">
       <p className="text-xs font-medium text-muted-foreground">Documents accessibles aux membres</p>
@@ -522,7 +522,7 @@ function DocumentsTab({ documents }: { documents: any[] }) {
   )
 }
 
-function RequestsTab({ profile, onNew }: { profile: MemberProfile; onNew: () => void }) {
+export function RequestsTab({ profile, onNew }: { profile: MemberProfile; onNew: () => void }) {
   const requests = profile.requests || []
   return (
     <div className="p-3 space-y-3">
@@ -557,7 +557,7 @@ function RequestsTab({ profile, onNew }: { profile: MemberProfile; onNew: () => 
   )
 }
 
-function ProfileTab({ profile }: { profile: MemberProfile }) {
+export function ProfileTab({ profile }: { profile: MemberProfile }) {
   const m = profile.member
   return (
     <div className="p-3 space-y-3">

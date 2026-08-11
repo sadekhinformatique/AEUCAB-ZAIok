@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server"
+import { NextRequest, NextResponse } from "next/server"
 import { db } from "@/lib/db"
 import { getSessionUser, getSessionUserId } from "./auth"
 
@@ -33,6 +33,20 @@ export const STAFF_ROLES = [
 ] as const
 
 export type StaffRole = (typeof STAFF_ROLES)[number]
+
+/**
+ * Resolve the member a request applies to, for the member mobile app:
+ * - any authenticated user linked to a member (role MEMBER + memberId) → that member
+ * - board/admin users without a linked member → the memberId query param (kiosk / simulation)
+ * Returns memberId = null when no member can be resolved (caller decides the error).
+ */
+export async function resolveMemberId(req: NextRequest): Promise<{ error: number | null; memberId: string | null }> {
+  const user = await getSessionUser()
+  if (!user) return { error: 401, memberId: null }
+  if (user.memberId) return { error: null, memberId: user.memberId }
+  const memberId = new URL(req.url).searchParams.get("memberId")
+  return { error: null, memberId }
+}
 
 /**
  * BOARD-role gate. Returns { error: 401 } if not authenticated,

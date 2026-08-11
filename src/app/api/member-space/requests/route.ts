@@ -1,17 +1,15 @@
 import { NextRequest } from "next/server"
 import { db } from "@/lib/db"
-import { ok, err, audit, serialize, getCurrentUserId, requireStaff } from "@/lib/sgiau/api"
+import { ok, err, audit, serialize, getCurrentUserId, resolveMemberId } from "@/lib/sgiau/api"
 
 export const dynamic = "force-dynamic"
 
 export async function GET(req: NextRequest) {
-  const gate = await requireStaff()
-  if (gate.error) return err(gate.error === 401 ? "Non authentifié" : "Accès réservé aux membres du bureau", gate.error)
-  const url = new URL(req.url)
-  const memberId = url.searchParams.get("memberId")
-  if (!memberId) return err("memberId requis", 422)
+  const r = await resolveMemberId(req)
+  if (r.error) return err("Non authentifié", r.error)
+  if (!r.memberId) return err("memberId requis", 422)
   const items = await db.memberRequest.findMany({
-    where: { memberId },
+    where: { memberId: r.memberId },
     orderBy: { createdAt: "desc" },
     take: 50,
   })
@@ -19,10 +17,12 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const gate = await requireStaff()
-  if (gate.error) return err(gate.error === 401 ? "Non authentifié" : "Accès réservé aux membres du bureau", gate.error)
+  const r = await resolveMemberId(req)
+  if (r.error) return err("Non authentifié", r.error)
   const body = await req.json()
-  const { memberId, type, subject, body: messageBody } = body
+  const { type, subject, body: messageBody } = body
+  // Back-office kiosk sends memberId in the body (staff without linked member)
+  const memberId = r.memberId ?? body.memberId
   if (!memberId || !type || !subject) return err("Champs manquants", 422)
 
   const userId = await getCurrentUserId()

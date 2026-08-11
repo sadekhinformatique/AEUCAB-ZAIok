@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import { AnimatePresence, motion } from "framer-motion"
-import { Lock, User, LogIn, ShieldCheck, AlertTriangle, Mail, Phone } from "lucide-react"
+import { Lock, User, LogIn, ShieldCheck, AlertTriangle, Mail, Phone, Smartphone } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -142,6 +142,13 @@ export default function LoginPage() {
               Session sécurisée — accès réservé aux membres du bureau
             </p>
           </form>
+
+          <div className="border-t px-8 py-4 text-center">
+            <a href="/espace-membre" className="inline-flex items-center gap-1.5 text-[11px] font-medium text-primary hover:underline">
+              <Smartphone className="h-3.5 w-3.5" />
+              Application mobile des membres
+            </a>
+          </div>
         </div>
 
         <div className="mt-4 flex items-center justify-center gap-4 text-[11px] text-slate-300">

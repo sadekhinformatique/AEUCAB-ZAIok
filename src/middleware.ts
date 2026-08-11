@@ -39,6 +39,11 @@ export async function middleware(req: NextRequest) {
     return NextResponse.next()
   }
 
+  // Application mobile des membres : l'écran de connexion est intégré à la page
+  if (pathname.startsWith("/espace-membre")) {
+    return NextResponse.next()
+  }
+
   if (!session) return NextResponse.redirect(new URL("/login", req.url))
   if (mcp) return NextResponse.redirect(new URL("/change-password", req.url))
   return NextResponse.next()
