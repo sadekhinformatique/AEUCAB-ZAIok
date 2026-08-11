@@ -6,7 +6,7 @@ import { GraduationCap, Lock, ShieldCheck, KeyRound, AlertTriangle, LogOut } fro
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { APP_FULL_NAME, APP_NAME } from "@/lib/sgiau/constants"
+import { APP_NAME } from "@/lib/sgiau/constants"
 import { passwordError, passwordPolicyHint } from "@/lib/sgiau/password-policy"
 
 export default function ChangePasswordPage() {
@@ -74,7 +74,6 @@ export default function ChangePasswordPage() {
               <KeyRound className="h-7 w-7" />
             </div>
             <h1 className="text-xl font-bold tracking-tight">Changement de mot de passe</h1>
-            <p className="mt-1 text-xs text-muted-foreground">{APP_FULL_NAME}</p>
           </div>
 
           <form onSubmit={submit} className="px-8 pb-6 space-y-4">

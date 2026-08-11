@@ -13,7 +13,7 @@ import { Progress } from "@/components/ui/progress"
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table"
-import { UCAB_FULL_NAME, UCAB_ORG_NAME } from "@/lib/sgiau/constants"
+import { UCAB_FULL_NAME } from "@/lib/sgiau/constants"
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select"
@@ -447,7 +447,7 @@ export default function VotesModule() {
             <img src="/logo-aeucab.png" alt="Logo de l'amicale" className="h-14 w-14 rounded-full border-2 border-[#086808]/30 bg-white object-cover" />
             <div>
               <p className="font-bold text-lg leading-tight">{UCAB_FULL_NAME}</p>
-              <p className="text-xs text-gray-500">{UCAB_ORG_NAME} · Rapport de vote</p>
+              <p className="text-xs text-gray-500">Rapport de vote</p>
             </div>
           </div>
           <h1 className="text-2xl font-bold">{detail.title}</h1>

@@ -19,7 +19,7 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "SGIAU — Gestion de l'Amicale Universitaire",
   description:
-    "Système de Gestion Intégrée de l'Amicale Universitaire : membres, cotisations, comptabilité, activités, élections, documents et plus.",
+    "Gestion de l'amicale universitaire : membres, cotisations, comptabilité, activités, élections, documents et plus.",
   keywords: ["amicale", "universitaire", "gestion", "cotisations", "SGIAU"],
   authors: [{ name: "SGIAU" }],
 };

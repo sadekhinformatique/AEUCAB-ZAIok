@@ -20,7 +20,7 @@ import { Label } from "@/components/ui/label"
 import { toast } from "sonner"
 import { formatDate } from "@/lib/sgiau/format"
 import { QrBlock } from "@/components/sgiau/qr-block"
-import { APP_FULL_NAME, UCAB_FULL_NAME, UCAB_MOTTO } from "@/lib/sgiau/constants"
+import { UCAB_FULL_NAME, UCAB_MOTTO } from "@/lib/sgiau/constants"
 import { initials } from "@/lib/sgiau/format"
 
 interface CardMember {
@@ -261,9 +261,8 @@ export default function CardsModule() {
                   {/* Bandeau rouge ondulé */}
                   <div className="relative bg-gradient-to-b from-[#c21212] to-[#8a0a0a] px-4 pt-4 text-center text-white">
                     <p className="text-[8px] uppercase tracking-[0.26em] text-white/85">{UCAB_FULL_NAME}</p>
-                    <div className="mt-1.5 flex items-center justify-center gap-2">
-                      <img src="/logo-aeucab.png" alt="Logo de l'amicale" className="h-8 w-8 rounded-full bg-white object-cover" />
-                      <p className="text-xl font-black tracking-wide leading-none">AEUCAB-ZAI</p>
+                    <div className="mt-1.5 flex items-center justify-center">
+                      <img src="/logo-aeucab.png" alt="Logo de l'amicale" className="h-10 w-10 rounded-full bg-white object-cover" />
                     </div>
                     <p className="mt-1 text-[8px] italic text-white/75">« {UCAB_MOTTO} »</p>
                     <svg className="relative mt-3 w-full text-white" viewBox="0 0 320 14" preserveAspectRatio="none" aria-hidden="true">
@@ -310,7 +309,7 @@ export default function CardsModule() {
                     ))}
                   </div>
                 </div>
-                <p className="mt-1 text-center text-[9px] text-muted-foreground print:hidden">« {UCAB_MOTTO} » · {APP_FULL_NAME}</p>
+                <p className="mt-1 text-center text-[9px] text-muted-foreground print:hidden">« {UCAB_MOTTO} »</p>
               </div>
 
               <div className="print:hidden flex gap-2">

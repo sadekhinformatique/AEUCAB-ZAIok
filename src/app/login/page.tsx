@@ -7,7 +7,6 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import {
-  APP_FULL_NAME,
   APP_NAME,
   UCAB_EMAIL,
   UCAB_FULL_NAME,
@@ -64,7 +63,6 @@ export default function LoginPage() {
           {/* Header */}
           <div className="px-8 pt-8 pb-6 text-center">
             <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full border-2 border-emerald-700/30 bg-white p-1 shadow-lg shadow-emerald-700/20">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src="/logo-aeucab.png"
                 alt="Logo de l'amicale"
@@ -75,7 +73,6 @@ export default function LoginPage() {
               {UCAB_FULL_NAME}
             </p>
             <h1 className="mt-1 text-xl font-bold tracking-tight">{APP_NAME}</h1>
-            <p className="mt-0.5 text-xs text-muted-foreground">{APP_FULL_NAME}</p>
             <p className="mt-2 text-[11px] italic text-muted-foreground/80">« {UCAB_MOTTO} »</p>
           </div>
 
