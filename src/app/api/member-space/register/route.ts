@@ -3,7 +3,7 @@ import { db } from "@/lib/db"
 import { ok, err, serialize } from "@/lib/sgiau/api"
 import { hashPassword } from "@/lib/sgiau/auth"
 import { passwordError } from "@/lib/sgiau/password-policy"
-import { normalizeFiliere, normalizeLevel, isAP } from "@/lib/sgiau/constants"
+import { normalizeFiliere, normalizeLevel, isAP, birthDateError } from "@/lib/sgiau/constants"
 
 export const dynamic = "force-dynamic"
 
@@ -29,6 +29,8 @@ export async function POST(req: NextRequest) {
 
   if (!firstName || !lastName) return err("Le nom et le prénom sont requis", 422)
   if (!username || !password) return err("Identifiant et mot de passe requis", 422)
+  const bdError = birthDateError(birthDate)
+  if (bdError) return err(bdError, 422)
 
   const uname = String(username).trim()
   if (uname.length < 3) return err("L'identifiant doit contenir au moins 3 caractères", 422)

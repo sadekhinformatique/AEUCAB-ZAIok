@@ -18,7 +18,10 @@ import { toast } from "sonner"
 import { Money } from "@/components/sgiau/ui"
 import { QrBlock } from "@/components/sgiau/qr-block"
 import { formatDate } from "@/lib/sgiau/format"
-import { APP_NAME, UCAB_FULL_NAME, FILIERES, LEVELS, isAP } from "@/lib/sgiau/constants"
+import {
+  APP_NAME, UCAB_FULL_NAME, FILIERES, LEVELS, isAP,
+  birthDateError, MIN_STUDENT_AGE, MAX_STUDENT_AGE,
+} from "@/lib/sgiau/constants"
 import {
   HomeTab, PaymentsTab, DocumentsTab, RequestsTab, ProfileTab,
   type MemberProfile, type Announcement, type Tab, REQUEST_TYPES,
@@ -138,6 +141,11 @@ export function MemberApp() {
   async function register(e: React.FormEvent) {
     e.preventDefault()
     setLoginError(null)
+    const bdError = birthDateError(regForm.birthDate)
+    if (bdError) {
+      setLoginError(bdError)
+      return
+    }
     setRegSaving(true)
     try {
       const res = await fetch("/api/member-space/register", {
@@ -361,7 +369,13 @@ export function MemberApp() {
               </div>
               <div className="space-y-1.5">
                 <Label className="text-xs font-medium">Date de naissance</Label>
-                <Input type="date" value={regForm.birthDate} onChange={(e) => setRegForm({ ...regForm, birthDate: e.target.value })} />
+                <Input
+                  type="date"
+                  min={`${new Date().getFullYear() - MAX_STUDENT_AGE}-01-01`}
+                  max={`${new Date().getFullYear() - MIN_STUDENT_AGE}-12-31`}
+                  value={regForm.birthDate}
+                  onChange={(e) => setRegForm({ ...regForm, birthDate: e.target.value })}
+                />
               </div>
             </div>
             <div className="space-y-1.5">

@@ -66,6 +66,46 @@ export function isAP(filiere: string | null | undefined): boolean {
   return !!filiere && filiere.trim().toUpperCase() === "AP"
 }
 
+// ============================================================
+// RÈGLES D'ÂGE DES ÉTUDIANTS (Sénégal)
+// Majorité à 18 ans — une date de naissance doit donner un âge
+// d'étudiant plausible (18 à 70 ans), jamais dans le futur.
+// ============================================================
+export const MIN_STUDENT_AGE = 18
+export const MAX_STUDENT_AGE = 70
+
+/** Calcule l'âge à partir d'une date de naissance (null si invalide). */
+export function ageFromBirthDate(value: Date | string): number | null {
+  const d = new Date(value)
+  if (isNaN(d.getTime())) return null
+  const now = new Date()
+  let age = now.getFullYear() - d.getFullYear()
+  const m = now.getMonth() - d.getMonth()
+  if (m < 0 || (m === 0 && now.getDate() < d.getDate())) age--
+  return age
+}
+
+/**
+ * Retourne un message d'erreur si la date de naissance est illogique
+ * (futur, mineur, ou âge impossible pour un étudiant), sinon null.
+ * Accepte une valeur vide (champ optionnel).
+ */
+export function birthDateError(value: string | Date | null | undefined): string | null {
+  if (!value) return null
+  const d = new Date(value)
+  if (isNaN(d.getTime())) return "Date de naissance invalide"
+  if (d.getTime() > Date.now()) return "La date de naissance ne peut pas être dans le futur"
+  const age = ageFromBirthDate(d)
+  if (age === null) return "Date de naissance invalide"
+  if (age < MIN_STUDENT_AGE) {
+    return `Âge minimum : ${MIN_STUDENT_AGE} ans (majorité) — cet âge ne correspond pas à un étudiant`
+  }
+  if (age > MAX_STUDENT_AGE) {
+    return `Âge maximum : ${MAX_STUDENT_AGE} ans — vérifiez la date de naissance`
+  }
+  return null
+}
+
 export const LEVELS = ["L1", "L2", "L3"] as const
 export type Level = (typeof LEVELS)[number]
 

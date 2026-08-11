@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server"
 import { db } from "@/lib/db"
 import { ok, err, audit, serialize, getCurrentUserId } from "@/lib/sgiau/api"
-import { normalizeFiliere, normalizeLevel, isAP } from "@/lib/sgiau/constants"
+import { normalizeFiliere, normalizeLevel, isAP, birthDateError } from "@/lib/sgiau/constants"
 
 export const dynamic = "force-dynamic"
 
@@ -38,6 +38,8 @@ export async function POST(req: NextRequest) {
   const body = await req.json()
   const { firstName, lastName, sex, birthDate, phone, email, address, faculty, department, level, academicYear, status } = body
   if (!firstName || !lastName) return err("Le nom et le prénom sont requis", 422)
+  const bdError = birthDateError(birthDate)
+  if (bdError) return err(bdError, 422)
 
   const year = academicYear || new Date().getFullYear().toString()
   const count = await db.member.count()

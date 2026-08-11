@@ -22,7 +22,10 @@ import {
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { toast } from "sonner"
-import { MEMBER_STATUS_COLORS, MEMBER_STATUS_LABELS, FILIERES, LEVELS, LEVEL_LABELS, isAP } from "@/lib/sgiau/constants"
+import {
+  MEMBER_STATUS_COLORS, MEMBER_STATUS_LABELS, FILIERES, LEVELS, LEVEL_LABELS,
+  isAP, birthDateError, MIN_STUDENT_AGE, MAX_STUDENT_AGE,
+} from "@/lib/sgiau/constants"
 import { formatDate, formatDateTime, toCSV, downloadCSV, initials } from "@/lib/sgiau/format"
 import { QrBlock } from "@/components/sgiau/qr-block"
 import { useSgiau } from "@/lib/sgiau/store"
@@ -41,6 +44,10 @@ interface MemberDetail extends Member {
 }
 
 const emptyForm = { firstName: "", lastName: "", sex: "M", birthDate: "", phone: "", email: "", address: "", faculty: "", department: "", level: "", academicYear: "2024-2025", status: "ACTIVE" }
+
+// Bornes du sélecteur de date : étudiants de 18 à 70 ans (règles Sénégal)
+const minBirthDate = `${new Date().getFullYear() - MAX_STUDENT_AGE}-01-01`
+const maxBirthDate = `${new Date().getFullYear() - MIN_STUDENT_AGE}-12-31`
 
 export default function MembersModule() {
   const { setModule } = useSgiau()
@@ -97,6 +104,11 @@ export default function MembersModule() {
   async function save() {
     if (!form.firstName.trim() || !form.lastName.trim()) {
       toast.error("Le nom et le prénom sont requis")
+      return
+    }
+    const bdError = birthDateError(form.birthDate)
+    if (bdError) {
+      toast.error(bdError)
       return
     }
     setSaving(true)
@@ -304,7 +316,7 @@ export default function MembersModule() {
                 <SelectContent><SelectItem value="M">Homme</SelectItem><SelectItem value="F">Femme</SelectItem></SelectContent>
               </Select>
             </Field>
-            <Field label="Date de naissance"><Input type="date" value={form.birthDate} onChange={(e) => setForm({ ...form, birthDate: e.target.value })} /></Field>
+            <Field label="Date de naissance"><Input type="date" min={minBirthDate} max={maxBirthDate} value={form.birthDate} onChange={(e) => setForm({ ...form, birthDate: e.target.value })} /></Field>
             <Field label="Téléphone"><Input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} /></Field>
             <Field label="Email"><Input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} /></Field>
             <Field label="Filière">

@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server"
 import { db } from "@/lib/db"
 import { ok, err, audit, serialize } from "@/lib/sgiau/api"
-import { normalizeFiliere, normalizeLevel, isAP } from "@/lib/sgiau/constants"
+import { normalizeFiliere, normalizeLevel, isAP, birthDateError } from "@/lib/sgiau/constants"
 
 export const dynamic = "force-dynamic"
 
@@ -27,6 +27,11 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
   const body = await req.json()
   const before = await db.member.findUnique({ where: { id } })
   if (!before) return err("Membre introuvable", 404)
+
+  if ("birthDate" in body) {
+    const bdError = birthDateError(body.birthDate)
+    if (bdError) return err(bdError, 422)
+  }
 
   const allowed = ["firstName", "lastName", "sex", "birthDate", "phone", "email", "address", "faculty", "department", "level", "academicYear", "status", "photoUrl"]
   const data: Record<string, unknown> = {}
