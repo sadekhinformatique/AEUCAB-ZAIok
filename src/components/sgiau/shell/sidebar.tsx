@@ -1,17 +1,29 @@
 "use client"
 
-import { useRef } from "react"
+import { useRef, useState } from "react"
 import { MODULE_GROUPS, APP_NAME, UCAB_FULL_NAME } from "@/lib/sgiau/constants"
 import { useSgiau } from "@/lib/sgiau/store"
 import { Icon } from "./icon"
 import { cn } from "@/lib/utils"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { X } from "lucide-react"
+import { ChevronDown, ChevronRight, X } from "lucide-react"
 import { Drawer, DrawerContent } from "@/components/ui/drawer"
 
 export function Sidebar() {
   const { activeModule, setModule, sidebarOpen, setSidebarOpen } = useSgiau()
   const navRef = useRef<HTMLElement | null>(null)
+  // Sections repliées/dépliées : par défaut tout est déplié
+  const [collapsed, setCollapsed] = useState<Record<string, boolean>>({})
+
+  function toggleGroup(group: string) {
+    setCollapsed((prev) => ({ ...prev, [group]: !prev[group] }))
+  }
+
+  function openModule(id: string, group: string) {
+    setModule(id)
+    // Déplie la section quand on active un module
+    setCollapsed((prev) => (prev[group] ? { ...prev, [group]: false } : prev))
+  }
 
   // Keyboard navigation: ArrowUp/ArrowDown move between items, Home/End jump to first/last
   function handleNavKeyDown(e: React.KeyboardEvent<HTMLElement>) {
@@ -40,7 +52,6 @@ export function Sidebar() {
     <>
       <div className="h-16 flex items-center gap-3 px-5 border-b border-sidebar-border">
         <div className="h-9 w-9 shrink-0 overflow-hidden rounded-full bg-white p-0.5 ring-2 ring-sidebar-primary/70">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src="/logo-aeucab.png" alt="Logo de l'amicale" className="h-full w-full rounded-full object-cover" />
         </div>
         <div className="min-w-0">
@@ -57,33 +68,47 @@ export function Sidebar() {
 
       <ScrollArea className="flex-1 scroll-thin">
         <nav ref={navRef} onKeyDown={handleNavKeyDown} className="px-3 py-4 space-y-5">
-          {MODULE_GROUPS.map((group) => (
-            <div key={group.group}>
-              <p className="px-3 mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-sidebar-foreground/50">
-                {group.group}
-              </p>
-              <div className="space-y-0.5">
-                {group.modules.map((m) => {
-                  const active = activeModule === m.id
-                  return (
-                    <button
-                      key={m.id}
-                      onClick={() => setModule(m.id)}
-                      className={cn(
-                        "w-full flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors text-left",
-                        active
-                          ? "bg-sidebar-primary text-sidebar-primary-foreground shadow-sm"
-                          : "text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
-                      )}
-                    >
-                      <Icon name={m.icon} className="h-4 w-4 shrink-0" />
-                      <span className="truncate">{m.label}</span>
-                    </button>
-                  )
-                })}
+          {MODULE_GROUPS.map((group) => {
+            const isCollapsed = !!collapsed[group.group]
+            return (
+              <div key={group.group}>
+                <button
+                  onClick={() => toggleGroup(group.group)}
+                  className="w-full flex items-center gap-1.5 px-3 py-1.5 mb-1 text-[10px] font-semibold uppercase tracking-wider text-sidebar-foreground/50 hover:text-sidebar-foreground/80 transition-colors text-left rounded-md"
+                  aria-expanded={!isCollapsed}
+                >
+                  {isCollapsed ? (
+                    <ChevronRight className="h-3.5 w-3.5 shrink-0" />
+                  ) : (
+                    <ChevronDown className="h-3.5 w-3.5 shrink-0" />
+                  )}
+                  <span className="truncate">{group.group}</span>
+                </button>
+                {!isCollapsed && (
+                  <div className="space-y-0.5">
+                    {group.modules.map((m) => {
+                      const active = activeModule === m.id
+                      return (
+                        <button
+                          key={m.id}
+                          onClick={() => openModule(m.id, group.group)}
+                          className={cn(
+                            "w-full flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors text-left",
+                            active
+                              ? "bg-sidebar-primary text-sidebar-primary-foreground shadow-sm"
+                              : "text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+                          )}
+                        >
+                          <Icon name={m.icon} className="h-4 w-4 shrink-0" />
+                          <span className="truncate">{m.label}</span>
+                        </button>
+                      )
+                    })}
+                  </div>
+                )}
               </div>
-            </div>
-          ))}
+            )
+          })}
         </nav>
       </ScrollArea>
 
