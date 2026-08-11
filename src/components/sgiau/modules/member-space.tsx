@@ -1,10 +1,10 @@
 "use client"
 
-import { useEffect, useState, useCallback } from "react"
+import { useEffect, useState, useCallback, useRef } from "react"
 import { PageHeader, SectionCard, EmptyState, LoadingState, Money } from "@/components/sgiau/ui"
 import {
   Smartphone, Home, Wallet, FileText, Send, User, LogOut, Pin, CheckCircle2,
-  AlertCircle, Download, ChevronRight, Bell, Search,
+  AlertCircle, Download, ChevronRight, Bell, Search, MessageSquare, Loader2,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -51,7 +51,7 @@ export const REQUEST_TYPES: Record<string, string> = {
   OTHER: "Autre",
 }
 
-export type Tab = "home" | "payments" | "documents" | "requests" | "profile"
+export type Tab = "home" | "payments" | "documents" | "requests" | "discussion" | "profile"
 
 export default function MemberSpaceModule() {
   const [members, setMembers] = useState<SimpleMember[]>([])
@@ -281,18 +281,22 @@ export default function MemberSpaceModule() {
                 {tab === "requests" && (
                   <RequestsTab profile={profile} onNew={() => setReqOpen(true)} />
                 )}
+                {tab === "discussion" && (
+                  <DiscussionTab profile={profile} />
+                )}
                 {tab === "profile" && (
                   <ProfileTab profile={profile} />
                 )}
               </div>
 
               {/* Bottom tabs */}
-              <div className="grid grid-cols-5 border-t bg-card">
+              <div className="grid grid-cols-6 border-t bg-card">
                 {([
                   { key: "home", label: "Accueil", icon: Home },
                   { key: "payments", label: "Cotis.", icon: Wallet },
                   { key: "documents", label: "Docs", icon: FileText },
                   { key: "requests", label: "Demandes", icon: Send },
+                  { key: "discussion", label: "Discussion", icon: MessageSquare },
                   { key: "profile", label: "Profil", icon: User },
                 ] as { key: Tab; label: string; icon: React.ComponentType<{ className?: string }> }[]).map((t) => {
                   const Icon = t.icon
@@ -656,6 +660,123 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
     <div className="space-y-1.5">
       <Label className="text-xs font-medium">{label}</Label>
       {children}
+    </div>
+  )
+}
+
+export function DiscussionTab({ profile }: { profile: MemberProfile }) {
+  const meId = profile.member.id
+  const [messages, setMessages] = useState<any[]>([])
+  const [text, setText] = useState("")
+  const [loading, setLoading] = useState(true)
+  const [sending, setSending] = useState(false)
+  const scrollRef = useRef<HTMLDivElement | null>(null)
+
+  const load = useCallback(async () => {
+    try {
+      const res = await fetch("/api/member-space/discussion")
+      const data = await res.json()
+      setMessages(Array.isArray(data) ? data : [])
+    } catch {
+      // silencieux — la liste reste telle quelle
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  useEffect(() => { load() }, [load])
+
+  // Rafraîchissement automatique (nouveaux messages des autres membres)
+  useEffect(() => {
+    const t = setInterval(load, 15000)
+    return () => clearInterval(t)
+  }, [load])
+
+  // Défilement vers le bas à chaque nouveau message
+  useEffect(() => {
+    scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" })
+  }, [messages.length])
+
+  async function send(e: React.FormEvent) {
+    e.preventDefault()
+    const msg = text.trim()
+    if (!msg || sending) return
+    setSending(true)
+    try {
+      const res = await fetch("/api/member-space/discussion", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: msg }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data?.error || "Erreur")
+      setText("")
+      await load()
+    } catch (err) {
+      toast.error((err as Error).message)
+    } finally {
+      setSending(false)
+    }
+  }
+
+  return (
+    <div className="flex h-full flex-col">
+      <div className="flex items-center gap-1.5 border-b bg-card px-3 py-2">
+        <MessageSquare className="h-3.5 w-3.5 text-primary" />
+        <p className="text-xs font-semibold flex-1">Discussion des membres</p>
+        <button onClick={load} className="p-1 text-muted-foreground hover:text-primary" title="Actualiser">
+          <Loader2 className="h-3.5 w-3.5" />
+        </button>
+      </div>
+
+      <div ref={scrollRef} className="flex-1 space-y-2 overflow-y-auto scroll-thin p-3">
+        {loading ? (
+          <p className="text-center text-[10px] text-muted-foreground py-6">Chargement…</p>
+        ) : messages.length === 0 ? (
+          <div className="text-center py-8">
+            <MessageSquare className="mx-auto h-8 w-8 text-muted-foreground/40" />
+            <p className="mt-2 text-xs text-muted-foreground">Aucun message pour le moment</p>
+            <p className="text-[10px] text-muted-foreground/70">Lancez la discussion !</p>
+          </div>
+        ) : (
+          messages.map((msg) => {
+            const mine = msg.member?.id === meId
+            return (
+              <div key={msg.id} className={`flex ${mine ? "justify-end" : "justify-start"}`}>
+                <div
+                  className={`max-w-[80%] rounded-2xl px-3 py-2 ${mine
+                    ? "bg-primary text-primary-foreground rounded-br-sm"
+                    : "bg-card border rounded-bl-sm"}`}
+                >
+                  {!mine && (
+                    <p className="text-[9px] font-semibold text-primary mb-0.5">
+                      {msg.member?.firstName} {msg.member?.lastName}
+                    </p>
+                  )}
+                  <p className="text-xs break-words whitespace-pre-wrap">{msg.message}</p>
+                  <p className={`text-[9px] mt-1 ${mine ? "text-primary-foreground/70" : "text-muted-foreground"}`}>
+                    {formatDate(msg.createdAt)}
+                  </p>
+                </div>
+              </div>
+            )
+          })
+        )}
+      </div>
+
+      <form onSubmit={send} className="flex items-center gap-2 border-t bg-card p-2">
+        <Input
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          placeholder="Écrivez un message…"
+          className="h-9 flex-1 text-xs"
+          maxLength={1000}
+        />
+        <Button type="submit" size="sm" className="h-9 gap-1 px-3" disabled={sending || !text.trim()}>
+          {sending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
+          <span className="hidden sm:inline">Envoyer</span>
+        </Button>
+      </form>
     </div>
   )
 }

@@ -106,6 +106,7 @@ model Member {
   formations      FormationParticipant[]
   borrows         LibraryBorrow[]
   requests        MemberRequest[]
+  discussion      DiscussionMessage[]
   notifications   Notification[]
   syncMeta        SyncMeta?
 }
@@ -733,6 +734,20 @@ model MemberRequest {
   response    String?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+}
+
+// ============================================================
+// DISCUSSION MEMBRES (espace membre)
+// ============================================================
+
+model DiscussionMessage {
+  id        String   @id @default(cuid())
+  memberId  String
+  member    Member   @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  message   String
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
 }
 
 // ============================================================
