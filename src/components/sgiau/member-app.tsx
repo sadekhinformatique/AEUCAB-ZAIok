@@ -45,7 +45,7 @@ export function MemberApp() {
   const [loggingIn, setLoggingIn] = useState(false)
 
   // Inscription
-  const [mode, setMode] = useState<"login" | "register">("login")
+  const [mode, setMode] = useState<"login" | "register" | "forgot">("login")
   const [regSaving, setRegSaving] = useState(false)
   const [regForm, setRegForm] = useState({
     firstName: "", lastName: "", sex: "M", birthDate: "", phone: "", email: "", address: "",
@@ -53,6 +53,11 @@ export function MemberApp() {
     academicYear: `${new Date().getFullYear()}-${new Date().getFullYear() + 1}`,
     username: "", password: "",
   })
+
+  // Mot de passe oublié
+  const [forgotForm, setForgotForm] = useState({ username: "", verification: "", newPassword: "", confirm: "" })
+  const [forgotSaving, setForgotSaving] = useState(false)
+  const [forgotDone, setForgotDone] = useState(false)
 
   // Nouvelle demande
   const [reqOpen, setReqOpen] = useState(false)
@@ -159,6 +164,39 @@ export function MemberApp() {
     }
   }
 
+  async function forgotPassword(e: React.FormEvent) {
+    e.preventDefault()
+    setLoginError(null)
+    if (forgotForm.newPassword !== forgotForm.confirm) {
+      setLoginError("Les deux mots de passe ne correspondent pas")
+      return
+    }
+    setForgotSaving(true)
+    try {
+      const res = await fetch("/api/auth/forgot-password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          username: forgotForm.username.trim(),
+          verification: forgotForm.verification.trim(),
+          newPassword: forgotForm.newPassword,
+        }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        setLoginError(data?.error || "Échec de la réinitialisation")
+        setForgotSaving(false)
+        return
+      }
+      setForgotDone(true)
+      setForgotForm({ username: "", verification: "", newPassword: "", confirm: "" })
+      setForgotSaving(false)
+    } catch {
+      setLoginError("Impossible de contacter le serveur.")
+      setForgotSaving(false)
+    }
+  }
+
   async function logout() {
     try {
       await fetch("/api/auth/logout", { method: "POST" })
@@ -243,7 +281,7 @@ export function MemberApp() {
           </div>
         )}
 
-        {mode === "login" ? (
+        {mode === "login" && (
           <form onSubmit={login} className="mt-6 w-full space-y-4">
             <div className="space-y-1.5">
               <Label htmlFor="m-username" className="text-xs font-medium">Identifiant</Label>
@@ -273,15 +311,26 @@ export function MemberApp() {
               {loggingIn ? <Loader2 className="h-4 w-4 animate-spin" /> : <Lock className="h-4 w-4" />}
               {loggingIn ? "Connexion…" : "Se connecter"}
             </Button>
-            <button
-              type="button"
-              onClick={() => { setMode("register"); setLoginError(null) }}
-              className="w-full text-center text-[11px] font-medium text-primary hover:underline"
-            >
-              Pas encore membre ? S'inscrire
-            </button>
+            <div className="flex items-center justify-between gap-2">
+              <button
+                type="button"
+                onClick={() => { setMode("register"); setLoginError(null) }}
+                className="text-center text-[11px] font-medium text-primary hover:underline"
+              >
+                Pas encore membre ? S'inscrire
+              </button>
+              <button
+                type="button"
+                onClick={() => { setMode("forgot"); setLoginError(null) }}
+                className="text-center text-[11px] font-medium text-muted-foreground hover:underline"
+              >
+                Mot de passe oublié ?
+              </button>
+            </div>
           </form>
-        ) : (
+        )}
+
+        {mode === "register" && (
           <form onSubmit={register} className="mt-6 w-full space-y-3">
             <p className="text-center text-xs font-semibold text-primary">
               Nouvelle demande d'adhésion
@@ -384,6 +433,81 @@ export function MemberApp() {
             >
               J'ai déjà un compte — Se connecter
             </button>
+          </form>
+        )}
+
+        {mode === "forgot" && (
+          <form onSubmit={forgotPassword} className="mt-6 w-full space-y-3">
+            <p className="text-center text-xs font-semibold text-primary">
+              Mot de passe oublié
+            </p>
+            {forgotDone ? (
+              <>
+                <div className="flex w-full items-start gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2.5 text-xs text-emerald-700" role="status">
+                  <ShieldCheck className="mt-px h-4 w-4 shrink-0" />
+                  <span>Mot de passe réinitialisé ! Connectez-vous avec votre nouveau mot de passe.</span>
+                </div>
+                <Button
+                  type="button"
+                  className="h-10 w-full gap-2"
+                  onClick={() => { setMode("login"); setForgotDone(false); setLoginError(null) }}
+                >
+                  <Lock className="h-4 w-4" /> Retour à la connexion
+                </Button>
+              </>
+            ) : (
+              <>
+                <p className="text-center text-[11px] text-muted-foreground">
+                  Vérifiez votre identité avec une information de votre dossier (date de naissance, email ou téléphone), puis choisissez un nouveau mot de passe.
+                </p>
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-medium">Identifiant *</Label>
+                  <Input
+                    value={forgotForm.username}
+                    onChange={(e) => setForgotForm({ ...forgotForm, username: e.target.value })}
+                    placeholder="Votre identifiant"
+                    autoFocus
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-medium">Vérification *</Label>
+                  <Input
+                    value={forgotForm.verification}
+                    onChange={(e) => setForgotForm({ ...forgotForm, verification: e.target.value })}
+                    placeholder="Date de naissance (AAAA-MM-JJ), email ou téléphone"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-medium">Nouveau mot de passe *</Label>
+                  <Input
+                    type="password"
+                    value={forgotForm.newPassword}
+                    onChange={(e) => setForgotForm({ ...forgotForm, newPassword: e.target.value })}
+                    placeholder="8 car. + majuscule, chiffre, symbole"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-medium">Confirmer le mot de passe *</Label>
+                  <Input
+                    type="password"
+                    value={forgotForm.confirm}
+                    onChange={(e) => setForgotForm({ ...forgotForm, confirm: e.target.value })}
+                    placeholder="Retapez le mot de passe"
+                  />
+                </div>
+                <Button type="submit" className="h-10 w-full gap-2" disabled={forgotSaving}>
+                  {forgotSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <ShieldCheck className="h-4 w-4" />}
+                  {forgotSaving ? "Réinitialisation…" : "Réinitialiser le mot de passe"}
+                </Button>
+                <button
+                  type="button"
+                  onClick={() => { setMode("login"); setLoginError(null) }}
+                  className="w-full text-center text-[11px] font-medium text-primary hover:underline"
+                >
+                  Retour à la connexion
+                </button>
+              </>
+            )}
           </form>
         )}
 

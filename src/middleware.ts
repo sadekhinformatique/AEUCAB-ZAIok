@@ -6,6 +6,7 @@ const PUBLIC_API = [
   "/api/auth/login",
   "/api/auth/logout",
   "/api/auth/change-password",
+  "/api/auth/forgot-password",
   "/api/health",
   "/api/member-space/register",
 ]
