@@ -1,10 +1,25 @@
 /* SGIAU — Service worker de l'application mobile des membres (PWA)
- * Stratégies :
- *  - pages / coquille : cache d'abord, revalidation en arrière-plan (stale-while-revalidate)
- *  - API GET : réseau d'abord, repli cache (données fraîches en ligne, lecture hors-ligne)
- *  - navigation hors-ligne : repli sur /espace-membre
+ *
+ * v2 — corrige l'erreur « Application error: a client-side exception » qui
+ * apparaissait après chaque redéploiement sur Vercel :
+ *
+ *   v1 interceptait TOUTES les requêtes same-origin — y compris /_next/static/* —
+ *   avec une stratégie cache-first. Après un déploiement, le HTML en cache
+ *   (ancien build) référençait d'anciens chunks supprimés du serveur → 404 →
+ *   crash JS au chargement de l'application.
+ *
+ *   v2 :
+ *   - /_next/* (assets hashed et immuables) : NON interceptés — le cache HTTP
+ *     du navigateur (immutable) suffit, aucun risque de chunk périmé.
+ *   - Navigation (pages HTML) : réseau d'abord, cache en secours (hors-ligne).
+ *     On ne sert JAMAIS une page périmée quand on est en ligne.
+ *   - API GET : réseau d'abord, repli cache (fraîches en ligne, lecture hors-ligne).
+ *   - Autres fichiers statiques (logo, icônes) : réseau d'abord, repli cache.
+ *
+ * Le numéro de version du cache (v2) purge automatiquement l'ancien cache v1
+ * empoisonné lors de l'activation.
  */
-const CACHE = "sgiau-member-v1"
+const CACHE = "sgiau-member-v2"
 const SHELL = [
   "/espace-membre",
   "/login",
@@ -32,48 +47,32 @@ self.addEventListener("activate", (event) => {
   )
 })
 
+// Réseau d'abord, cache en secours : sert la réponse fraîche quand on est en
+// ligne (et la met en cache pour le hors-ligne suivant) ; ne sert le cache que
+// si le réseau échoue. Pour une navigation sans cache, repli sur l'app membre.
+async function networkFirst(request) {
+  const cache = await caches.open(CACHE)
+  try {
+    const res = await fetch(request)
+    if (res && res.ok) cache.put(request, res.clone())
+    return res
+  } catch {
+    if (request.mode === "navigate") {
+      return (await cache.match(request)) || (await caches.match("/espace-membre")) || Response.error()
+    }
+    return (await cache.match(request)) || Response.error()
+  }
+}
+
 self.addEventListener("fetch", (event) => {
   const { request } = event
   if (request.method !== "GET") return
   const url = new URL(request.url)
   if (url.origin !== self.location.origin) return
 
-  // API GET : réseau d'abord, cache en secours (hors-ligne)
-  if (url.pathname.startsWith("/api/")) {
-    event.respondWith(
-      fetch(request)
-        .then((res) => {
-          const clone = res.clone()
-          caches.open(CACHE).then((cache) => cache.put(request, clone))
-          return res
-        })
-        .catch(() => caches.match(request))
-    )
-    return
-  }
+  // Assets de build Next.js : contenu-hashed et immuables → ne jamais les
+  // intercepter (voir l'en-tête du fichier pour l'explication du crash v1).
+  if (url.pathname.startsWith("/_next/")) return
 
-  // Pages et fichiers statiques : cache d'abord + revalidation en arrière-plan
-  event.respondWith(
-    caches.match(request).then((cached) => {
-      const network = fetch(request)
-        .then((res) => {
-          if (res && res.ok) {
-            const clone = res.clone()
-            caches.open(CACHE).then((cache) => cache.put(request, clone))
-          }
-          return res
-        })
-        .catch(() => cached)
-
-      if (cached) {
-        network // revalidation silencieuse
-        return cached
-      }
-      if (request.mode === "navigate") {
-        // Hors-ligne : rediriger vers l'application membre en cache
-        return network.catch(() => caches.match("/espace-membre"))
-      }
-      return network
-    })
-  )
+  event.respondWith(networkFirst(request))
 })
