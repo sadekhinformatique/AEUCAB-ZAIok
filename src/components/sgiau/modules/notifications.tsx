@@ -63,8 +63,13 @@ export default function NotificationsModule() {
     setLoading(true)
     try {
       const res = await fetch(`/api/notifications?${unreadOnly ? "unread=1" : ""}`)
-      const data = await res.json()
-      setItems(data.items || [])
+      // Session expirée / non authentifié → redirection propre vers la page de connexion
+      if (res.status === 401) {
+        window.location.assign("/login")
+        return
+      }
+      const data = await res.json().catch(() => ({}))
+      setItems(Array.isArray(data?.items) ? data.items : [])
     } catch {
       setItems([])
     } finally {
@@ -73,12 +78,23 @@ export default function NotificationsModule() {
   }, [unreadOnly])
 
   const loadRecipients = useCallback(async () => {
-    const [u, m] = await Promise.all([
-      fetch("/api/users?limit=500").then((r) => r.json()),
-      fetch("/api/members?limit=500").then((r) => r.json()),
-    ])
-    setUsers(u.items?.map((x: any) => ({ id: x.id, fullName: x.fullName, username: x.username })) || [])
-    setMembers(m.map((x: any) => ({ id: x.id, matricule: x.matricule, firstName: x.firstName, lastName: x.lastName })) || [])
+    try {
+      const [u, m] = await Promise.all([
+        fetch("/api/users?limit=500"),
+        fetch("/api/members?limit=500"),
+      ])
+      if (u.status === 401 || m.status === 401) {
+        window.location.assign("/login")
+        return
+      }
+      const uj = await u.json().catch(() => ({}))
+      const mj = await m.json().catch(() => ({}))
+      setUsers(Array.isArray(uj?.items) ? uj.items.map((x: any) => ({ id: x.id, fullName: x.fullName, username: x.username })) : [])
+      setMembers(Array.isArray(mj) ? mj.map((x: any) => ({ id: x.id, matricule: x.matricule, firstName: x.firstName, lastName: x.lastName })) : [])
+    } catch {
+      setUsers([])
+      setMembers([])
+    }
   }, [])
 
   useEffect(() => { load() }, [load])

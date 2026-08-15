@@ -29,20 +29,40 @@ jobs:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
         run: npx --yes vercel@latest pull --yes --environment=production --token="$VERCEL_TOKEN"
 
-      - name: Inject environment variables
+      # Les secrets GitHub font foi : on retire d'abord toute valeur DATABASE_URL /
+      # AUTH_SECRET déjà présente (récupérée par `vercel pull` depuis le dashboard),
+      # sinon la première occurrence gagne et des valeurs périmées du dashboard
+      # écraseraient silencieusement les secrets à jour → 401 / login invalide en prod.
+      # Le build échoue si un secret est absent plutôt que de déployer un état cassé.
+      - name: Inject environment variables (force, GitHub secrets win)
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           AUTH_SECRET: ${{ secrets.AUTH_SECRET }}
         run: |
+          grep -vE '^(DATABASE_URL|AUTH_SECRET)=' .vercel/.env.production.local > .vercel/.env.production.clean || true
+          mv .vercel/.env.production.clean .vercel/.env.production.local
           printf 'DATABASE_URL=%s\n' "$DATABASE_URL" >> .vercel/.env.production.local
           printf 'AUTH_SECRET=%s\n' "$AUTH_SECRET" >> .vercel/.env.production.local
+          if [ -z "$DATABASE_URL" ] || [ -z "$AUTH_SECRET" ]; then
+            echo "::error::Secrets GitHub DATABASE_URL / AUTH_SECRET absents ou vides — ajoutez-les dans Settings → Secrets and variables → Actions"
+            exit 1
+          fi
 
       - name: Build (production)
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
         run: npx --yes vercel@latest build --prod --token="$VERCEL_TOKEN"
 
+      # Le middleware (Edge) utilise AUTH_SECRET inliné au BUILD ; les route handlers
+      # (Node) le lisent au RUNTIME. Pour garantir la même valeur partout, on injecte
+      # aussi les secrets au déploiement (--env) : le runtime est alors identique au
+      # build, quelle que soit la configuration du dashboard Vercel.
       - name: Deploy to Vercel (production)
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
-        run: npx --yes vercel@latest deploy --prebuilt --prod --yes --token="$VERCEL_TOKEN"
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          AUTH_SECRET: ${{ secrets.AUTH_SECRET }}
+        run: npx --yes vercel@latest deploy --prebuilt --prod --yes \
+          --env DATABASE_URL="$DATABASE_URL" \
+          --env AUTH_SECRET="$AUTH_SECRET" \
+          --token="$VERCEL_TOKEN"

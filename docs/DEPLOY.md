@@ -125,3 +125,57 @@ Dès que les étapes 1.2 et 2.x sont faites, vérifier dans l'ordre :
 Le mot de passe admin est affiché une seule fois lors de sa rotation — le conserver hors du
 repo. C'est l'admin qui crée les autres utilisateurs (module « Nouvel utilisateur », qui
 impose la politique de mot de passe fort).
+
+---
+
+## Incidents 401 en production — causes racines documentées
+
+Symptôme observé : `/api/users/me`, `/api/dashboard` et `/api/notifications` renvoient
+`401 {"error":"Non authentifié"}` et le tableau de bord plante avec
+`Cannot read properties of undefined (reading 'activeMembers')`.
+
+Deux causes racines, toutes deux liées au déploiement (pas au code applicatif) :
+
+### 1. Déploiement « stale » (code périmé)
+
+Le site en ligne peut tourner une **ancienne version** du code (avant l'ajout d'endpoints
+publics comme `/api/member-space/register` ou `/api/auth/forgot-password`). Diagnostic :
+un `POST /api/auth/forgot-password` qui renvoie `401 Non authentifié` (au lieu du message
+de vérification) prouve que le déploiement est antérieur au commit `2010bc6`.
+
+→ **Correctif** : pousser sur `main` et vérifier que le workflow GitHub Actions déploie bien
+(statut vert), ou redéployer manuellement :
+`npx vercel --prod --token="$VERCEL_TOKEN"`.
+
+### 2. Variables d'environnement périmées / incohérentes
+
+Le middleware (Edge) utilise `AUTH_SECRET` **inliné au moment du build**, tandis que les
+route handlers (Node) le lisent **au runtime**. Si le dashboard Vercel contient d'anciennes
+valeurs (`vercel pull` les récupère en premier et la première occurrence gagne), les tokens
+émis au login sont rejetés par le middleware → 401 partout. De même, un `DATABASE_URL`
+périmé pointe vers une ancienne base : le login renvoie « Identifiants invalides » même avec
+les bons identifiants.
+
+Le workflow `deploy.yml` est corrigé pour que **les secrets GitHub fassent toujours foi** :
+- suppression des lignes `DATABASE_URL` / `AUTH_SECRET` déjà présentes dans le fichier env ;
+- échec du build si l'un des secrets est absent ou vide ;
+- injection `--env DATABASE_URL=… --env AUTH_SECRET=…` au déploiement, pour que le runtime
+  soit identique au build quelle que soit la configuration du dashboard.
+
+### Variables requises (3 emplacements, mêmes valeurs)
+
+| Variable | Emplacement 1 : GitHub Secrets | Emplacement 2 : Vercel Settings → Environment Variables (Production) | Valeur |
+|---|---|---|---|
+| `DATABASE_URL` | ✅ `DATABASE_URL` | ✅ `DATABASE_URL` | URL Neon **pooled** identique au `.env` local (`…-pooler.REGION.aws.neon.tech/DB?sslmode=require`) |
+| `AUTH_SECRET` | ✅ `AUTH_SECRET` | ✅ `AUTH_SECRET` | **exactement la même** que le `.env` local (`openssl rand -hex 32`, ≥ 32 caractères) |
+| `VERCEL_TOKEN` | ✅ `VERCEL_TOKEN` | — | Token CLI Vercel |
+
+⚠️ `AUTH_SECRET` et `DATABASE_URL` doivent être **identiques** entre le `.env` local, les
+secrets GitHub et le dashboard Vercel. Changer `AUTH_SECRET` invalide toutes les sessions
+existantes (12 h de tolérance) — prévoir une rotation en heure creuse.
+
+Vérification après redéploiement :
+1. `curl https://aeucab-zai.vercel.app/api/health` → `200` + `database.ok: true`
+2. `curl -X POST https://aeucab-zai.vercel.app/api/auth/forgot-password -H 'Content-Type: application/json' -d '{"username":"x"}'`
+   → réponse de l'API (`Vérification incorrecte` ou équivalent), **pas** `401 Non authentifié`
+3. Se connecter → le tableau de bord se charge, plus de crash `activeMembers`.

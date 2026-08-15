@@ -1,7 +1,8 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useCallback, useEffect, useState } from "react"
 import { PageHeader, StatCard, SectionCard, Money, LoadingState } from "@/components/sgiau/ui"
+import { Button } from "@/components/ui/button"
 import {
   LayoutDashboard, Users, UserCheck, Wallet, TrendingDown, Landmark,
   ReceiptText, CalendarDays, Vote, AlertTriangle, ArrowUpRight, ArrowDownRight,
@@ -28,18 +29,55 @@ interface DashData {
 
 const PIE_COLORS = ["oklch(0.55 0.13 160)", "oklch(0.6 0.13 200)", "oklch(0.7 0.15 70)", "oklch(0.62 0.2 25)", "oklch(0.6 0.16 300)", "oklch(0.65 0.13 145)"]
 
+/**
+ * Garde de forme : ne renvoie true que si la réponse est bien le payload du
+ * tableau de bord (counts objet + séries présentes). Sans cela, on n'affiche
+ * JAMAIS data.counts.* sur une valeur undefined → plus de crash possible.
+ */
+function isDashData(d: unknown): d is DashData {
+  if (!d || typeof d !== "object") return false
+  const o = d as Record<string, unknown>
+  if (!o.counts || typeof o.counts !== "object") return false
+  const counts = o.counts as Record<string, unknown>
+  const countKeys = ["totalMembers", "activeMembers", "pendingMembers", "suspendedMembers", "totalPayments", "partialPayments", "totalReceipts", "pendingExpenses", "validatedExpenses", "activities", "upcomingMeetings", "openElections", "openVotes", "unreadNotifs"]
+  if (!countKeys.every((k) => typeof counts[k] === "number")) return false
+  if (!o.financials || typeof o.financials !== "object") return false
+  if (!Array.isArray(o.months) || !Array.isArray(o.byFaculty) || !Array.isArray(o.byMode)) return false
+  if (!Array.isArray(o.recentPayments) || !Array.isArray(o.recentMembers)) return false
+  return true
+}
+
 export default function DashboardModule() {
   const { setModule } = useSgiau()
   const reduced = useReducedMotion()
   const [data, setData] = useState<DashData | null>(null)
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  const load = useCallback(async () => {
+    setLoading(true)
+    setError(null)
+    try {
+      const res = await fetch("/api/dashboard")
+      // Session expirée / non authentifié → redirection propre vers la page de connexion
+      if (res.status === 401) {
+        window.location.assign("/login")
+        return
+      }
+      const body = await res.json().catch(() => null)
+      if (!res.ok) throw new Error(body?.error || `Erreur serveur (${res.status})`)
+      if (!isDashData(body)) throw new Error("Données du tableau de bord indisponibles")
+      setData(body)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Impossible de charger le tableau de bord")
+    } finally {
+      setLoading(false)
+    }
+  }, [])
 
   useEffect(() => {
-    fetch("/api/dashboard")
-      .then((r) => r.json())
-      .then((d) => setData(d))
-      .finally(() => setLoading(false))
-  }, [])
+    load()
+  }, [load])
 
   return (
     <div className="space-y-6">
@@ -49,8 +87,26 @@ export default function DashboardModule() {
         icon={LayoutDashboard}
       />
 
-      {loading || !data ? (
+      {loading ? (
         <LoadingState rows={6} />
+      ) : error || !data ? (
+        <div className="rounded-xl border border-rose-200 bg-rose-50 p-6 text-center dark:border-rose-500/30 dark:bg-rose-500/10">
+          <AlertTriangle className="mx-auto h-8 w-8 text-rose-500" />
+          <p className="mt-3 text-sm font-medium text-rose-700 dark:text-rose-300">
+            {error ?? "Tableau de bord indisponible"}
+          </p>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Réessayez, ou reconnectez-vous si votre session a expiré.
+          </p>
+          <div className="mt-4 flex justify-center gap-2">
+            <Button variant="outline" size="sm" onClick={() => load()}>
+              Réessayer
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => window.location.assign("/login")}>
+              Se reconnecter
+            </Button>
+          </div>
+        </div>
       ) : (
         <>
           {/* Top stats */}

@@ -31,17 +31,35 @@ export function Topbar() {
   const [user, setUser] = useState<SessionUser | null>(null)
   const [notifCount, setNotifCount] = useState(0)
 
-  useEffect(() => setMounted(true), [])
+  useEffect(() => {
+    const id = requestAnimationFrame(() => setMounted(true))
+    return () => cancelAnimationFrame(id)
+  }, [])
 
   useEffect(() => {
+    // Session expirée / non authentifié → redirection propre vers la page de connexion
+    const redirectIfUnauthorized = (r: Response) => {
+      if (r.status === 401) {
+        window.location.assign("/login")
+        return true
+      }
+      return false
+    }
+
     fetch("/api/users/me")
-      .then((r) => (r.ok ? r.json() : null))
+      .then((r) => {
+        if (redirectIfUnauthorized(r)) return null
+        return r.ok ? r.json() : null
+      })
       .then((d) => {
         if (d?.user) setUser(d.user)
       })
       .catch(() => {})
     fetch("/api/notifications?unread=1")
-      .then((r) => (r.ok ? r.json() : null))
+      .then((r) => {
+        if (redirectIfUnauthorized(r)) return null
+        return r.ok ? r.json() : null
+      })
       .then((d) => setNotifCount(d?.count ?? 0))
       .catch(() => {})
   }, [])
