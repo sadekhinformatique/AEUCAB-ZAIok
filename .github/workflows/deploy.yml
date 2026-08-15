@@ -53,6 +53,50 @@ jobs:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
         run: npx --yes vercel@latest build --prod --token="$VERCEL_TOKEN"
 
+      # Garde-fou anti-régression : on refuse de déployer un build qui reproduirait
+      # l'incident « Application error » (ancien HTML + chunks supprimés → crash JS) :
+      #   1) le service worker doit exclure /_next/* (assets hashed immuables) et
+      #      déclarer un cache versionné (sgiau-member-vN) qui purge l'ancien ;
+      #   2) chaque chunk (.js/.css) référencé par les pages HTML générées doit
+      #      exister dans le build — sinon le déploiement est cassé d'avance.
+      - name: Verify build integrity (SW + chunks)
+        run: |
+          set -euo pipefail
+
+          # 1) Garde-fous structurels du service worker
+          grep -q 'startsWith("/_next/")' public/sw.js || {
+            echo "::error::sw.js doit exclure /_next/ des requêtes interceptées (sinon chunks périmés → « Application error »)"
+            exit 1
+          }
+          grep -qE 'const CACHE = "sgiau-member-v[0-9]+"' public/sw.js || {
+            echo "::error::sw.js doit déclarer un cache versionné (sgiau-member-vN) pour purger l'ancien à l'activation"
+            exit 1
+          }
+
+          # 2) Tous les chunks référencés par les pages HTML générées existent dans le build
+          HTML_DIRS=".next/server/app .vercel/output/static"
+          CHUNK_DIRS=".next .vercel/output/static"
+          found_html=0
+          for hd in $HTML_DIRS; do
+            [ -d "$hd" ] || continue
+            while IFS= read -r chunk; do
+              found_html=1
+              rel="${chunk#/_next/}"
+              ok=0
+              for cd in $CHUNK_DIRS; do
+                if [ -f "$cd/$rel" ] || [ -f "$cd$chunk" ]; then ok=1; break; fi
+              done
+              if [ "$ok" -ne 1 ]; then
+                echo "::error::Chunk référencé par une page mais absent du build : $chunk"
+                exit 1
+              fi
+            done < <(grep -rhoE '/_next/static/chunks/[^"]+\.(js|css)' "$hd" --include='*.html' 2>/dev/null | sort -u)
+          done
+          if [ "$found_html" -eq 0 ]; then
+            echo "::warning::Aucune page HTML statique trouvée — vérification des chunks ignorée"
+          fi
+          echo "✅ Build intègre : sw.js OK, tous les chunks référencés sont présents"
+
       # Le middleware (Edge) utilise AUTH_SECRET inliné au BUILD ; les route handlers
       # (Node) le lisent au RUNTIME. Pour garantir la même valeur partout, on injecte
       # aussi les secrets au déploiement (--env) : le runtime est alors identique au
@@ -66,3 +110,45 @@ jobs:
           --env DATABASE_URL="$DATABASE_URL" \
           --env AUTH_SECRET="$AUTH_SECRET" \
           --token="$VERCEL_TOKEN"
+
+      # Smoke test post-déploiement sur la vraie production : le SW doit servir le
+      # numéro de cache de la source, et chaque chunk référencé par le HTML doit
+      # répondre 200 — exactement le scénario de l'incident « Application error ».
+      - name: Smoke test production (SW + chunks)
+        run: |
+          set -euo pipefail
+          BASE="https://aeucab-za-iok.vercel.app"
+
+          # Attendre la propagation de l'alias de production (quelques secondes)
+          for _ in $(seq 1 24); do
+            if curl -fsS -o /dev/null --max-time 10 "$BASE/api/health"; then break; fi
+            sleep 5
+          done
+          curl -fsS --max-time 10 "$BASE/api/health" >/dev/null || {
+            echo "::error::La production ne répond pas après le déploiement"
+            exit 1
+          }
+
+          # 1) Le service worker sert le bon numéro de cache (celui de la source)
+          SW_VERSION=$(grep -oE 'const CACHE = "[^"]+"' public/sw.js | head -1 | cut -d'"' -f2)
+          SERVED=$(curl -fsS --max-time 10 "$BASE/sw.js" | grep -oE 'sgiau-member-v[0-9]+' | head -1 || true)
+          if [ -z "$SERVED" ] || [ "$SERVED" != "$SW_VERSION" ]; then
+            echo "::error::SW en prod = '$SERVED', source = '$SW_VERSION' — le déploiement n'a pas pris ou le cache CDN est périmé"
+            exit 1
+          fi
+
+          # 2) Chaque chunk référencé par le HTML existe sur le serveur
+          HTML=$(curl -fsSL --max-time 15 "$BASE/login")
+          CHUNKS=$(echo "$HTML" | grep -oE '/_next/static/chunks/[^"]+\.(js|css)' | sort -u)
+          if [ -z "$CHUNKS" ]; then
+            echo "::error::Aucun chunk détecté dans le HTML de $BASE/login"
+            exit 1
+          fi
+          while IFS= read -r chunk; do
+            code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 15 "$BASE$chunk")
+            if [ "$code" != "200" ]; then
+              echo "::error::Chunk manquant en production : $chunk → HTTP $code"
+              exit 1
+            fi
+          done <<< "$CHUNKS"
+          echo "✅ Smoke test : SW $SERVED servi, $(echo "$CHUNKS" | wc -l) chunks vérifiés (HTTP 200)"
