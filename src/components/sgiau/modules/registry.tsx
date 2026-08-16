@@ -21,6 +21,7 @@ const loaders: Record<string, () => Promise<{ default: ComponentType }>> = {
   presences: () => import("@/components/sgiau/modules/presences"),
   elections: () => import("@/components/sgiau/modules/elections"),
   votes: () => import("@/components/sgiau/modules/votes"),
+  sport: () => import("@/components/sgiau/modules/sport"),
   documents: () => import("@/components/sgiau/modules/documents"),
   inventory: () => import("@/components/sgiau/modules/inventory"),
   formations: () => import("@/components/sgiau/modules/formations"),

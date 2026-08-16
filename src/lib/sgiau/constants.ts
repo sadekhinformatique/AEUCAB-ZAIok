@@ -292,6 +292,7 @@ export const MODULE_GROUPS: { group: string; modules: { id: string; label: strin
       { id: "activities", label: "Activités", icon: "CalendarDays" },
       { id: "meetings", label: "Réunions", icon: "UsersRound" },
       { id: "presences", label: "Présences", icon: "ClipboardCheck" },
+      { id: "sport", label: "Sport", icon: "Trophy" },
       { id: "elections", label: "Élections", icon: "Vote" },
       { id: "votes", label: "Votes internes", icon: "CheckSquare" },
     ],

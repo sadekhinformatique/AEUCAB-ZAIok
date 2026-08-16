@@ -5,6 +5,7 @@ import { PageHeader, SectionCard, EmptyState, LoadingState, Money } from "@/comp
 import {
   Smartphone, Home, Wallet, FileText, Send, User, LogOut, Pin, CheckCircle2,
   AlertCircle, Download, ChevronRight, Bell, Search, MessageSquare, Loader2,
+  Trophy, CalendarDays, MapPin, Clock,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -51,7 +52,7 @@ export const REQUEST_TYPES: Record<string, string> = {
   OTHER: "Autre",
 }
 
-export type Tab = "home" | "payments" | "documents" | "requests" | "discussion" | "profile"
+export type Tab = "home" | "payments" | "documents" | "requests" | "discussion" | "sport" | "profile"
 
 export default function MemberSpaceModule() {
   const [members, setMembers] = useState<SimpleMember[]>([])
@@ -284,18 +285,22 @@ export default function MemberSpaceModule() {
                 {tab === "discussion" && (
                   <DiscussionTab profile={profile} />
                 )}
+                {tab === "sport" && (
+                  <SportTab profile={profile} />
+                )}
                 {tab === "profile" && (
                   <ProfileTab profile={profile} />
                 )}
               </div>
 
               {/* Bottom tabs */}
-              <div className="grid grid-cols-6 border-t bg-card">
+              <div className="grid grid-cols-7 border-t bg-card">
                 {([
                   { key: "home", label: "Accueil", icon: Home },
                   { key: "payments", label: "Cotis.", icon: Wallet },
                   { key: "documents", label: "Docs", icon: FileText },
                   { key: "requests", label: "Demandes", icon: Send },
+                  { key: "sport", label: "Sport", icon: Trophy },
                   { key: "discussion", label: "Discussion", icon: MessageSquare },
                   { key: "profile", label: "Profil", icon: User },
                 ] as { key: Tab; label: string; icon: React.ComponentType<{ className?: string }> }[]).map((t) => {
@@ -603,6 +608,171 @@ export function RequestsTab({ profile, onNew }: { profile: MemberProfile; onNew:
           ))}
         </div>
       )}
+    </div>
+  )
+}
+
+// ============================================================
+// SPORT — Commission Sportive : règlement + dates de compétition
+// ============================================================
+
+const REGLEMENT_PDF_URL = "/documents/reglement-sportive.pdf"
+
+const REGLEMENT_ARTICLES = [
+  "Objet",
+  "Participation",
+  "Composition des équipes",
+  "Engagement des joueurs",
+  "Discipline et comportement",
+  "Assiduité et ponctualité",
+  "Tenue sportive",
+  "Arbitrage",
+  "Public et supporters",
+  "Participation financière",
+  "Sanctions",
+  "Réclamations",
+  "Cas non prévus",
+  "Disposition finale",
+]
+
+// Compétitions sportives = activités dont le nom/description/lieu évoque le sport
+const SPORT_KEYWORDS = [
+  "sport", "foot", "basket", "volley", "hand", "match", "tournoi",
+  "compétition", "competition", "inter-classe", "interclasse", "inter classe",
+  "athlétisme", "athletisme", "judo", "karaté", "karate", "tennis", "badminton",
+]
+
+function isSportActivity(a: any): boolean {
+  const hay = `${a.name ?? ""} ${a.description ?? ""} ${a.location ?? ""}`.toLowerCase()
+  return SPORT_KEYWORDS.some((k) => hay.includes(k))
+}
+
+export function SportTab({ profile }: { profile: MemberProfile }) {
+  const [competitions, setCompetitions] = useState<any[] | null>(null)
+
+  // Tous les setState se trouvent dans les callbacks (.then/.catch) :
+  // la règle react-hooks/set-state-in-effect l'exige pour les fonctions appelées depuis un effet.
+  const load = useCallback(() => {
+    fetch("/api/activities?limit=100")
+      .then((r) => r.json())
+      .then((data) => {
+        const now = Date.now()
+        const upcoming = (Array.isArray(data) ? data : []).filter((a: any) => {
+          // Uniquement les compétitions sportives à venir ou en cours
+          if (a.status !== "PLANNED" && a.status !== "ONGOING") return false
+          if (!isSportActivity(a)) return false
+          const start = new Date(a.startDate).getTime()
+          const end = a.endDate ? new Date(a.endDate).getTime() : start
+          return end >= now - 24 * 60 * 60 * 1000
+        })
+        upcoming.sort((x: any, y: any) => new Date(x.startDate).getTime() - new Date(y.startDate).getTime())
+        setCompetitions(upcoming)
+      })
+      .catch(() => setCompetitions([]))
+  }, [])
+
+  useEffect(() => { load() }, [load])
+
+  return (
+    <div className="p-3 space-y-3">
+      {/* En-tête Commission Sportive */}
+      <div className="rounded-xl bg-gradient-to-br from-primary to-primary/80 text-primary-foreground p-4">
+        <div className="flex items-center gap-2">
+          <Trophy className="h-5 w-5" />
+          <p className="text-sm font-semibold">Commission Sportive</p>
+        </div>
+        <p className="text-[10px] opacity-80 mt-1">
+          Compétitions sportives inter-classes de l'amicale — fair-play, discipline et respect
+        </p>
+      </div>
+
+      {/* Règlement */}
+      <div className="rounded-lg border bg-card p-3">
+        <div className="flex items-center gap-2">
+          <div className="rounded-lg bg-primary/10 p-2"><FileText className="h-4 w-4 text-primary" /></div>
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-medium">Règlement intérieur</p>
+            <p className="text-[10px] text-muted-foreground">Compétition Inter-Classes · 14 articles</p>
+          </div>
+        </div>
+        <div className="mt-3 flex gap-2">
+          <Button size="sm" variant="outline" className="h-8 flex-1 text-xs gap-1.5" asChild>
+            <a href={REGLEMENT_PDF_URL} target="_blank" rel="noopener noreferrer">
+              <FileText className="h-3.5 w-3.5" /> Lire le PDF
+            </a>
+          </Button>
+          <Button size="sm" className="h-8 flex-1 text-xs gap-1.5" asChild>
+            <a href={REGLEMENT_PDF_URL} download>
+              <Download className="h-3.5 w-3.5" /> Télécharger
+            </a>
+          </Button>
+        </div>
+        <div className="mt-3 border-t pt-2">
+          <p className="text-[10px] font-medium text-muted-foreground mb-1.5">Les 14 articles</p>
+          <div className="grid grid-cols-2 gap-x-3 gap-y-1">
+            {REGLEMENT_ARTICLES.map((a, i) => (
+              <p key={a} className="flex items-center gap-1.5 text-[11px] text-muted-foreground truncate">
+                <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-primary/10 text-[8px] font-semibold text-primary">
+                  {i + 1}
+                </span>
+                <span className="truncate">{a}</span>
+              </p>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Dates de compétition */}
+      <div className="rounded-lg border bg-card p-3">
+        <div className="flex items-center gap-2 mb-2">
+          <CalendarDays className="h-4 w-4 text-primary" />
+          <p className="text-xs font-semibold">Dates de compétition</p>
+        </div>
+        {competitions === null ? (
+          <p className="text-xs text-muted-foreground p-3 text-center">Chargement…</p>
+        ) : competitions.length === 0 ? (
+          <div className="text-center py-5">
+            <Trophy className="mx-auto h-6 w-6 text-muted-foreground/40" />
+            <p className="mt-2 text-xs text-muted-foreground">Aucune compétition programmée</p>
+            <p className="text-[10px] text-muted-foreground/70 mt-0.5">
+              Les compétitions de la Commission Sportive apparaîtront ici dès qu'elles seront planifiées
+            </p>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {competitions.map((a: any) => {
+              const start = new Date(a.startDate)
+              const ongoing = a.status === "ONGOING"
+              return (
+                <div key={a.id} className="rounded-lg border bg-muted/30 p-3">
+                  <div className="flex items-start justify-between gap-2">
+                    <p className="text-sm font-medium">{a.name}</p>
+                    {ongoing && (
+                      <Badge variant="outline" className="text-[9px] shrink-0 bg-emerald-50 text-emerald-700">
+                        En cours
+                      </Badge>
+                    )}
+                  </div>
+                  {a.description && (
+                    <p className="text-[11px] text-muted-foreground mt-0.5 line-clamp-2">{a.description}</p>
+                  )}
+                  <div className="mt-1.5 space-y-0.5 text-[11px] text-muted-foreground">
+                    <p className="flex items-center gap-1.5">
+                      <Clock className="h-3 w-3 shrink-0" /> {formatDate(a.startDate)}
+                      {a.endDate && a.endDate !== a.startDate && ` → ${formatDate(a.endDate)}`}
+                    </p>
+                    {a.location && (
+                      <p className="flex items-center gap-1.5">
+                        <MapPin className="h-3 w-3 shrink-0" /> {a.location}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        )}
+      </div>
     </div>
   )
 }

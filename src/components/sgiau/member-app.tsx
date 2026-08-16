@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react"
 import {
-  Home, Wallet, FileText, Send, User, LogOut, AlertCircle, Loader2, Download, Lock, ShieldCheck, MessageSquare,
+  Home, Wallet, FileText, Send, User, LogOut, AlertCircle, Loader2, Download, Lock, ShieldCheck, MessageSquare, Trophy,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -23,7 +23,7 @@ import {
   birthDateError, ageFromBirthDate, MIN_STUDENT_AGE, MAX_STUDENT_AGE,
 } from "@/lib/sgiau/constants"
 import {
-  HomeTab, PaymentsTab, DocumentsTab, RequestsTab, DiscussionTab, ProfileTab,
+  HomeTab, PaymentsTab, DocumentsTab, RequestsTab, DiscussionTab, ProfileTab, SportTab,
   type MemberProfile, type Announcement, type Tab, REQUEST_TYPES,
 } from "./modules/member-space"
 
@@ -582,17 +582,19 @@ export function MemberApp() {
         {tab === "documents" && <DocumentsTab documents={documents} />}
         {tab === "requests" && <RequestsTab profile={profile} onNew={() => setReqOpen(true)} />}
         {tab === "discussion" && <DiscussionTab profile={profile} />}
+        {tab === "sport" && <SportTab profile={profile} />}
         {tab === "profile" && <ProfileTab profile={profile} />}
       </main>
 
       {/* Onglets bas */}
-      <nav className="fixed inset-x-0 bottom-0 z-20 mx-auto grid max-w-md grid-cols-6 border-t bg-card">
+      <nav className="fixed inset-x-0 bottom-0 z-20 mx-auto grid max-w-md grid-cols-7 border-t bg-card">
         {(
           [
             { key: "home", label: "Accueil", icon: Home },
             { key: "payments", label: "Cotis.", icon: Wallet },
             { key: "documents", label: "Docs", icon: FileText },
             { key: "requests", label: "Demandes", icon: Send },
+            { key: "sport", label: "Sport", icon: Trophy },
             { key: "discussion", label: "Discussion", icon: MessageSquare },
             { key: "profile", label: "Profil", icon: User },
           ] as { key: Tab; label: string; icon: React.ComponentType<{ className?: string }> }[]

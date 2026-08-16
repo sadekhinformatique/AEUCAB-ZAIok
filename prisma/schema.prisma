@@ -371,6 +371,40 @@ model ActivityParticipant {
 }
 
 // ============================================================
+// MODULE SPORT — disciplines & équipes inter-classes
+// ============================================================
+
+model SportDiscipline {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  description String?
+  teamSize    Int      @default(5) // nombre de joueurs par équipe
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+
+  teams       SportTeam[]
+}
+
+model SportTeam {
+  id           String   @id @default(cuid())
+  disciplineId String
+  discipline   SportDiscipline @relation(fields: [disciplineId], references: [id], onDelete: Cascade)
+  className    String   // filière, ex. « Informatique et Gestion » (ou « AP »)
+  level        String   @default("") // L1, L2, L3 — vide pour l'Année Préparatoire
+  name         String   // nom de l'équipe
+  captainName  String?
+  players      String?  // liste des joueurs (JSON array)
+  status       String   @default("INSCRIPTION") // INSCRIPTION, CONFIRMED, REJECTED
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  // Règlement art. 2 : une seule équipe par classe et par discipline
+  @@unique([disciplineId, className, level])
+  @@index([disciplineId])
+  @@index([className, level])
+}
+
+// ============================================================
 // MODULE 10 — RÉUNIONS
 // ============================================================
 
