@@ -22,7 +22,7 @@ export async function POST(req: NextRequest) {
   }
 
   const body = await req.json()
-  const { name, description, teamSize, minTeamSize, maxTeamSize, positions, active } = body
+  const { name, description, teamSize, minTeamSize, maxTeamSize, yellowAccumulation, positions, active } = body
   if (!name?.trim()) return err("Le nom de la discipline est requis", 422)
 
   const existing = await db.sportDiscipline.findUnique({ where: { name: name.trim() } })
@@ -34,6 +34,7 @@ export async function POST(req: NextRequest) {
   if (min !== null && max !== null && min > max) {
     return err("Le nombre minimum de joueurs ne peut pas dépasser le maximum", 422)
   }
+  const accumulation = Math.max(1, Number(yellowAccumulation) || 3)
 
   const discipline = await db.$transaction(async (tx) => {
     const d = await tx.sportDiscipline.create({
@@ -43,6 +44,7 @@ export async function POST(req: NextRequest) {
         teamSize: size,
         minTeamSize: min,
         maxTeamSize: max,
+        yellowAccumulation: accumulation,
         active: active !== false,
       },
     })

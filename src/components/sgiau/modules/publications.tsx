@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react"
 import {
   Megaphone, Plus, Pencil, Trash2, Pin, Bell, Image as ImageIcon, Video, FileText,
-  Link2, Eye, Search,
+  Link2, Eye, Search, RefreshCw, AlertTriangle,
 } from "lucide-react"
 import { PageHeader, StatCard, SectionCard, EmptyState, LoadingState } from "@/components/sgiau/ui"
 import { Button } from "@/components/ui/button"
@@ -73,6 +73,7 @@ const EMPTY_FORM = {
 export default function PublicationsModule() {
   const [items, setItems] = useState<Publication[]>([])
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState(false)
   const [q, setQ] = useState("")
   const [open, setOpen] = useState(false)
   const [editing, setEditing] = useState<Publication | null>(null)
@@ -81,10 +82,21 @@ export default function PublicationsModule() {
   const [preview, setPreview] = useState<Publication | null>(null)
 
   const load = useCallback(() => {
+    setLoading(true)
     fetch("/api/announcements")
-      .then((r) => r.json())
-      .then((d) => setItems(Array.isArray(d) ? d : []))
-      .catch(() => toast.error("Impossible de charger les publications"))
+      .then((r) => {
+        if (!r.ok) throw new Error("Erreur serveur")
+        return r.json()
+      })
+      .then((d) => {
+        setItems(Array.isArray(d) ? d : [])
+        setLoadError(false)
+      })
+      .catch(() => {
+        setItems([])
+        setLoadError(true)
+        toast.error("Impossible de charger les publications")
+      })
       .finally(() => setLoading(false))
   }, [])
 
@@ -180,10 +192,18 @@ export default function PublicationsModule() {
           <LoadingState rows={4} />
         ) : filtered.length === 0 ? (
           <EmptyState
-            icon={Megaphone}
-            title="Aucune publication"
-            description="Publiez une annonce, une information sportive ou un rappel de cotisation — elle apparaîtra dans l'application étudiante."
-            action={<Button onClick={openNew} className="gap-2"><Plus className="h-4 w-4" /> Nouvelle publication</Button>}
+            icon={loadError ? AlertTriangle : Megaphone}
+            title={loadError ? "Impossible de charger les publications" : "Aucune publication"}
+            description={loadError
+              ? "Le serveur n'a pas répondu. Vérifiez la connexion, puis réessayez."
+              : "Publiez une annonce, une information sportive ou un rappel de cotisation — elle apparaîtra dans l'application étudiante."}
+            action={
+              loadError ? (
+                <Button onClick={load} className="gap-2"><RefreshCw className="h-4 w-4" /> Réessayer</Button>
+              ) : (
+                <Button onClick={openNew} className="gap-2"><Plus className="h-4 w-4" /> Nouvelle publication</Button>
+              )
+            }
           />
         ) : (
           <div className="rounded-lg border overflow-hidden">

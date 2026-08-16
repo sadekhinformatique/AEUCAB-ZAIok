@@ -14,6 +14,7 @@
  */
 import { db } from "@/lib/db"
 import type { Prisma } from "@prisma/client"
+import { notifyMember } from "@/lib/sgiau/api"
 
 export const TEAM_STATUSES = ["DRAFT", "SUBMITTED", "UNDER_REVIEW", "VALIDATED", "RETURNED", "REJECTED"] as const
 export type TeamStatus = (typeof TEAM_STATUSES)[number]
@@ -383,4 +384,232 @@ export async function computeStandings(opts: {
   return [...rows.values()].sort(
     (x, y) => y.points - x.points || y.goalDiff - x.goalDiff || y.goalsFor - x.goalsFor || x.teamName.localeCompare(y.teamName, "fr")
   )
+}
+
+// ============================================================
+// SUSPENSIONS & SANCTIONS (accumulation de cartons)
+// ============================================================
+
+export const SANCTION_CARD_TYPES = ["YELLOW", "DOUBLE_YELLOW", "RED", "ACCUMULATION"] as const
+export type SanctionCardType = (typeof SANCTION_CARD_TYPES)[number]
+
+export const SANCTION_STATUSES = ["ACTIVE", "SERVED", "CANCELED"] as const
+export type SanctionStatus = (typeof SANCTION_STATUSES)[number]
+
+/** Types de cartons qui entraînent une suspension (visible par les équipes). */
+export const SUSPENSION_CARD_TYPES: SanctionCardType[] = ["DOUBLE_YELLOW", "RED", "ACCUMULATION"]
+
+export const DEFAULT_YELLOW_ACCUMULATION = 3
+
+export function cardTypeLabel(type: string): string {
+  switch (type) {
+    case "YELLOW": return "Carton jaune"
+    case "DOUBLE_YELLOW": return "Deuxième jaune"
+    case "RED": return "Carton rouge"
+    case "ACCUMULATION": return "Accumulation de cartons"
+    default: return type
+  }
+}
+
+export function sanctionStatusLabel(status: string): string {
+  switch (status) {
+    case "ACTIVE": return "Active"
+    case "SERVED": return "Servie"
+    case "CANCELED": return "Annulée"
+    default: return status
+  }
+}
+
+export interface SheetCardPlayer {
+  name?: string | null
+  number?: number | null
+  goals?: number | null
+  cards?: string | null
+}
+
+export interface SanctionToCreate {
+  competitionId: string
+  disciplineId: string
+  teamId: string | null
+  playerName: string
+  memberId: string | null
+  cardType: string
+  matchId: string | null
+  matchesSuspended: number
+  reason: string | null
+}
+
+interface SanctionMatchLike {
+  id: string
+  competitionId?: string | null
+  disciplineId: string
+  teamAId: string | null
+  teamBId: string | null
+}
+
+/**
+ * Normalise un champ carton d'une feuille (« NONE » par défaut).
+ */
+export function normalizeCard(value: unknown): string {
+  const v = String(value ?? "NONE").trim().toUpperCase()
+  return (SANCTION_CARD_TYPES as readonly string[]).includes(v) ? v : "NONE"
+}
+
+/**
+ * Détecte les sanctions à enregistrer à partir d'une feuille de match confirmée.
+ *
+ * Règles appliquées :
+ *  - carton rouge → suspension de 1 match (DOUBLE_YELLOW idem) ;
+ *  - accumulation de cartons jaunes (seuil de la discipline, défaut 3) → suspension.
+ *
+ * Les joueurs sont rattachés aux membres de l'équipe par correspondance de nom
+ * (la feuille ne stocke que les noms). Retourne la liste des sanctions à créer.
+ */
+export async function detectSanctionsForSheet(opts: {
+  match: SanctionMatchLike
+  sheet: { playersA?: SheetCardPlayer[] | null; playersB?: SheetCardPlayer[] | null }
+  yellowAccumulation?: number | null
+  excludeMatchId?: boolean
+}): Promise<SanctionToCreate[]> {
+  const { match, sheet } = opts
+  const threshold = opts.yellowAccumulation ?? DEFAULT_YELLOW_ACCUMULATION
+  let competitionId = match.competitionId ?? ""
+  if (!competitionId && match.teamAId) {
+    // SportMatch ne porte pas la compétition — elle est déduite de l'équipe A
+    const teamA0 = await db.sportTeam.findUnique({
+      where: { id: match.teamAId },
+      select: { competitionId: true },
+    })
+    competitionId = teamA0?.competitionId ?? ""
+  }
+  if (!competitionId || !match.teamAId || !match.teamBId) return []
+
+  // Membre par nom de joueur, pour les deux équipes (la feuille ne stocke que des noms)
+  const [teamA, teamB] = await Promise.all([
+    db.sportTeam.findUnique({ where: { id: match.teamAId }, select: { id: true, players: true } }),
+    db.sportTeam.findUnique({ where: { id: match.teamBId }, select: { id: true, players: true } }),
+  ])
+  const playerIdsA = teamA ? parseIdArray(teamA.players) : []
+  const playerIdsB = teamB ? parseIdArray(teamB.players) : []
+  const [membersA, membersB] = await Promise.all([
+    playerIdsA.length ? db.member.findMany({ where: { id: { in: playerIdsA } }, select: { id: true, firstName: true, lastName: true } }) : Promise.resolve([]),
+    playerIdsB.length ? db.member.findMany({ where: { id: { in: playerIdsB } }, select: { id: true, firstName: true, lastName: true } }) : Promise.resolve([]),
+  ])
+  const nameToMember = (members: { id: string; firstName: string; lastName: string }[]) => {
+    const map = new Map<string, string>()
+    for (const m of members) {
+      map.set(`${m.firstName} ${m.lastName}`.toLowerCase().trim(), m.id)
+      map.set(`${m.lastName} ${m.firstName}`.toLowerCase().trim(), m.id)
+    }
+    return map
+  }
+  const mapA = nameToMember(membersA)
+  const mapB = nameToMember(membersB)
+
+  // Nombre de cartons jaunes ACTIVE déjà enregistrés pour chaque joueur (compétition)
+  const existingYellows = await db.sportSanction.findMany({
+    where: { competitionId, cardType: "YELLOW", status: "ACTIVE" },
+    select: { memberId: true, playerName: true },
+  })
+  const yellowCount = new Map<string, number>()
+  for (const s of existingYellows) {
+    const key = s.memberId ?? s.playerName.toLowerCase().trim()
+    yellowCount.set(key, (yellowCount.get(key) ?? 0) + 1)
+  }
+
+  const out: SanctionToCreate[] = []
+  const process = (list: SheetCardPlayer[] | null | undefined, teamId: string, memberMap: Map<string, string>) => {
+    for (const p of list ?? []) {
+      const card = normalizeCard(p?.cards)
+      if (card === "NONE") continue
+      const name = (p?.name ?? "").trim()
+      if (!name) continue
+      const memberId = memberMap.get(name.toLowerCase()) ?? null
+
+      if (card === "YELLOW") {
+        const key = memberId ?? name.toLowerCase().trim()
+        const total = (yellowCount.get(key) ?? 0) + 1
+        yellowCount.set(key, total)
+        // Avertissement enregistré (suivi) — aucune suspension par lui-même
+        out.push({
+          competitionId, disciplineId: match.disciplineId, teamId, playerName: name, memberId,
+          cardType: "YELLOW", matchId: match.id, matchesSuspended: 0, reason: "Carton jaune",
+        })
+        // Seuil d'accumulation atteint → suspension
+        if (threshold > 0 && total % threshold === 0) {
+          out.push({
+            competitionId, disciplineId: match.disciplineId, teamId, playerName: name, memberId,
+            cardType: "ACCUMULATION", matchId: match.id, matchesSuspended: 1,
+            reason: `Accumulation de ${total} cartons jaunes (seuil : ${threshold})`,
+          })
+        }
+      } else if (card === "DOUBLE_YELLOW") {
+        out.push({
+          competitionId, disciplineId: match.disciplineId, teamId, playerName: name, memberId,
+          cardType: "DOUBLE_YELLOW", matchId: match.id, matchesSuspended: 1,
+          reason: "Deuxième carton jaune dans le même match",
+        })
+      } else if (card === "RED") {
+        out.push({
+          competitionId, disciplineId: match.disciplineId, teamId, playerName: name, memberId,
+          cardType: "RED", matchId: match.id, matchesSuspended: 1,
+          reason: "Carton rouge",
+        })
+      }
+    }
+  }
+
+  process(sheet.playersA, match.teamAId, mapA)
+  process(sheet.playersB, match.teamBId, mapB)
+  return out
+}
+
+/**
+ * Applique les sanctions d'une feuille confirmée (création idempotente) et
+ * notifie l'équipe concernée (responsable sportif + joueurs) pour chaque
+ * suspension (matchsSuspended > 0). Retourne les sanctions créées.
+ */
+export async function applyMatchSanctions(opts: {
+  match: SanctionMatchLike
+  sheet: { playersA?: SheetCardPlayer[] | null; playersB?: SheetCardPlayer[] | null }
+  yellowAccumulation?: number | null
+}): Promise<{ created: number; suspended: number }> {
+  const sanctions = await detectSanctionsForSheet(opts)
+  if (!sanctions.length) return { created: 0, suspended: 0 }
+
+  // Idempotence : si des sanctions existent déjà pour ce match (re-confirmation), on les remplace
+  await db.sportSanction.deleteMany({ where: { matchId: opts.match.id } })
+  await db.sportSanction.createMany({ data: sanctions })
+
+  // Notifications pour les suspensions uniquement
+  const suspensions = sanctions.filter((s) => s.matchesSuspended > 0)
+  const teamIds = [...new Set(suspensions.map((s) => s.teamId).filter((t): t is string => !!t))]
+  const competition = sanctions.length
+    ? await db.sportCompetition.findUnique({
+        where: { id: sanctions[0].competitionId },
+        select: { id: true, name: true },
+      })
+    : null
+  const teams = teamIds.length
+    ? await db.sportTeam.findMany({
+        where: { id: { in: teamIds } },
+        select: { id: true, name: true, delegateId: true, teamPlayers: { select: { memberId: true } } },
+      })
+    : []
+  for (const team of teams) {
+    const teamSuspensions = suspensions.filter((s) => s.teamId === team.id)
+    const memberIds = new Set<string>()
+    if (team.delegateId) memberIds.add(team.delegateId)
+    for (const tp of team.teamPlayers) memberIds.add(tp.memberId)
+    for (const mid of memberIds) {
+      const names = teamSuspensions.map((s) => s.playerName).join(", ")
+      await notifyMember({
+        memberId: mid,
+        title: `Suspension — ${team.name}`,
+        message: `${names} : ${teamSuspensions.length} sanction(s) (${teamSuspensions.map((s) => cardTypeLabel(s.cardType)).join(", ")}) — ${competition?.name ?? ""}`,
+        type: "WARNING",
+      })
+    }
+  }
+  return { created: sanctions.length, suspended: suspensions.length }
 }

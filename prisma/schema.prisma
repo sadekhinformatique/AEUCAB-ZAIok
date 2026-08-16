@@ -401,6 +401,7 @@ model SportCompetition {
   referees     SportReferee[]
   participants SportExceptionalParticipant[]
   participationRequests SportParticipationRequest[]
+  sanctions    SportSanction[]
 
   @@index([status])
 }
@@ -424,6 +425,8 @@ model SportDiscipline {
   // Règles de composition configurables (null = taille exacte teamSize)
   minTeamSize Int?
   maxTeamSize Int?
+  // Suspensions : nombre de cartons jaunes accumulés déclenchant une suspension (défaut 3)
+  yellowAccumulation Int      @default(3)
   active      Boolean  @default(true)
   createdAt   DateTime @default(now())
 
@@ -432,6 +435,7 @@ model SportDiscipline {
   competitionDisciplines SportCompetitionDiscipline[]
   positions   SportPosition[]
   participationRequests SportParticipationRequest[]
+  sanctions   SportSanction[]
 }
 
 model SportPosition {
@@ -575,6 +579,7 @@ model SportTeam {
   matchesB     SportMatch[] @relation("MatchTeamB")
   teamPlayers  SportTeamPlayer[]
   participationRequests SportParticipationRequest[]
+  sanctions    SportSanction[]
 }
 
 model SportMatch {
@@ -601,9 +606,37 @@ model SportMatch {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
+  sanctions  SportSanction[]
+
   @@index([disciplineId])
   @@index([date])
   @@index([refereeId])
+}
+
+model SportSanction {
+  id               String   @id @default(cuid())
+  competitionId    String
+  competition      SportCompetition @relation(fields: [competitionId], references: [id], onDelete: Cascade)
+  disciplineId     String
+  discipline       SportDiscipline @relation(fields: [disciplineId], references: [id], onDelete: Cascade)
+  teamId           String?
+  team             SportTeam? @relation(fields: [teamId], references: [id], onDelete: SetNull)
+  playerName       String
+  memberId         String?  // membre lié si le joueur est identifié
+  cardType         String   // YELLOW, DOUBLE_YELLOW, RED, ACCUMULATION
+  matchId          String?
+  match            SportMatch? @relation(fields: [matchId], references: [id], onDelete: SetNull)
+  matchesSuspended Int      @default(1)
+  reason           String?
+  status           String   @default("ACTIVE") // ACTIVE, SERVED, CANCELED
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@index([competitionId])
+  @@index([disciplineId])
+  @@index([teamId])
+  @@index([status])
+  @@index([matchId])
 }
 
 // ============================================================

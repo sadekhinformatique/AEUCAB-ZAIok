@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react"
 import {
-  Home, Wallet, FileText, Send, User, LogOut, AlertCircle, Loader2, Download, Lock, ShieldCheck, MessageSquare, Trophy, Newspaper,
+  Home, Wallet, FileText, Send, User, LogOut, AlertCircle, Loader2, Download, Lock, ShieldCheck, MessageSquare, Trophy, Newspaper, BarChart3,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -23,7 +23,7 @@ import {
   birthDateError, ageFromBirthDate, MIN_STUDENT_AGE, MAX_STUDENT_AGE,
 } from "@/lib/sgiau/constants"
 import {
-  HomeTab, PaymentsTab, DocumentsTab, RequestsTab, DiscussionTab, ProfileTab, SportTab, NewsTab, NotificationBell,
+  HomeTab, PaymentsTab, DocumentsTab, RequestsTab, DiscussionTab, ProfileTab, SportTab, NewsTab, NotificationBell, StatisticsTab,
   type MemberProfile, type Announcement, type Tab, REQUEST_TYPES,
 } from "./modules/member-space"
 
@@ -103,7 +103,10 @@ export function MemberApp() {
           if (!r.ok) return Promise.reject()
           return r.json()
         }),
-        fetch("/api/member-space/announcements").then((r) => r.json()),
+        // Le flux d'actualités ne doit JAMAIS faire tomber la session :
+        // un 500 (base indisponible, colonnes manquantes…) renverrait l'utilisateur
+        // au login après une connexion réussie.
+        fetch("/api/member-space/announcements").then((r) => (r.ok ? r.json() : [])).catch(() => []),
         fetch("/api/documents?visibility=MEMBERS&limit=30").then((r) => r.json()).catch(() => []),
       ])
       setProfile(p)
@@ -596,11 +599,12 @@ export function MemberApp() {
         {tab === "news" && <NewsTab announcements={announcements} />}
         {tab === "discussion" && <DiscussionTab profile={profile} />}
         {tab === "sport" && <SportTab profile={profile} />}
+        {tab === "stats" && <StatisticsTab />}
         {tab === "profile" && <ProfileTab profile={profile} />}
       </main>
 
       {/* Onglets bas */}
-      <nav className="fixed inset-x-0 bottom-0 z-20 mx-auto grid max-w-md grid-cols-8 border-t bg-card">
+      <nav className="fixed inset-x-0 bottom-0 z-20 mx-auto grid max-w-md grid-cols-9 border-t bg-card">
         {(
           [
             { key: "home", label: "Accueil", icon: Home },
@@ -609,6 +613,7 @@ export function MemberApp() {
             { key: "requests", label: "Demandes", icon: Send },
             { key: "news", label: "Actus", icon: Newspaper },
             { key: "sport", label: "Sport", icon: Trophy },
+            { key: "stats", label: "Stats", icon: BarChart3 },
             { key: "discussion", label: "Discussion", icon: MessageSquare },
             { key: "profile", label: "Profil", icon: User },
           ] as { key: Tab; label: string; icon: React.ComponentType<{ className?: string }> }[]

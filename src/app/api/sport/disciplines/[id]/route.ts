@@ -34,6 +34,9 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
   }
   data.minTeamSize = min
   data.maxTeamSize = max
+  if (body.yellowAccumulation !== undefined) {
+    data.yellowAccumulation = Math.max(1, Number(body.yellowAccumulation) || before.yellowAccumulation)
+  }
   if (typeof body.active === "boolean") data.active = body.active
 
   const after = await db.$transaction(async (tx) => {

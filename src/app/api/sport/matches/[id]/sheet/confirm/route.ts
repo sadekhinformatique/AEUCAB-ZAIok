@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server"
 import { db } from "@/lib/db"
 import { ok, err, audit, serialize, requireSportResponsable } from "@/lib/sgiau/api"
+import { applyMatchSanctions } from "@/lib/sgiau/sport"
 
 export const dynamic = "force-dynamic"
 
@@ -101,5 +102,27 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     after,
     description: `Confirmation officielle de la feuille de match ${sheetNumber} (${check.scoreA}-${check.scoreB})`,
   })
-  return ok(serialize(after))
+
+  // Suspensions & sanctions : détection automatique (accumulation de cartons) + notifications équipe
+  let sanctions: { created: number; suspended: number } = { created: 0, suspended: 0 }
+  try {
+    const [discipline] = await Promise.all([
+      db.sportDiscipline.findUnique({ where: { id: after.disciplineId }, select: { yellowAccumulation: true } }),
+      db.sportTeam.findUnique({ where: { id: after.teamAId }, select: { competitionId: true } }),
+    ])
+    sanctions = await applyMatchSanctions({
+      match: {
+        id: after.id,
+        disciplineId: after.disciplineId,
+        teamAId: after.teamAId,
+        teamBId: after.teamBId,
+      },
+      sheet: { playersA: check.playersA, playersB: check.playersB },
+      yellowAccumulation: discipline?.yellowAccumulation ?? null,
+    })
+  } catch (e) {
+    // La confirmation de feuille ne doit jamais échouer à cause des sanctions
+    console.error("applyMatchSanctions error", e)
+  }
+  return ok({ ...serialize(after), sanctions })
 }

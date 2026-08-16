@@ -83,3 +83,6 @@ blob-report/
 
 # Fichiers téléversés
 public/uploads/
+
+# Sauvegardes de base de données
+backups/

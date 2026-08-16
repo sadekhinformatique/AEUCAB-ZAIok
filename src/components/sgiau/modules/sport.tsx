@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from "react"
 import {
   Trophy, Download, FileText, Eye, Users, Dumbbell, ShieldCheck, Flag,
   Plus, Pencil, Trash2, Search, UserPlus, CheckCircle2, XCircle, CalendarDays,
-  Medal, ClipboardCheck, PlayCircle, Lock, Unlock, RotateCcw,
+  Medal, ClipboardCheck, PlayCircle, Lock, Unlock, RotateCcw, AlertTriangle,
 } from "lucide-react"
 import { PageHeader, StatCard, SectionCard, EmptyState, LoadingState } from "@/components/sgiau/ui"
 import { Button } from "@/components/ui/button"
@@ -146,6 +146,7 @@ interface SimpleMember { id: string; matricule: string; firstName: string; lastN
 interface Discipline {
   id: string; name: string; description: string | null; teamSize: number
   minTeamSize: number | null; maxTeamSize: number | null
+  yellowAccumulation: number
   active: boolean; createdAt: string; _count?: { teams: number }
   positions?: { id: string; name: string }[]
 }
@@ -215,6 +216,17 @@ interface MatchSheet {
   refereeName: string; observations: string
 }
 
+interface Sanction {
+  id: string; competitionId: string; disciplineId: string
+  teamId: string | null; playerName: string; memberId: string | null
+  cardType: string; matchId: string | null; matchesSuspended: number
+  reason: string | null; status: string; createdAt: string
+  team: { id: string; name: string; className: string; level: string } | null
+  competition: { id: string; name: string } | null
+  discipline: { id: string; name: string } | null
+  match: { id: string; date: string; phase: string } | null
+}
+
 const EMPTY_SHEET: MatchSheet = { scoreA: 0, scoreB: 0, playersA: [], playersB: [], refereeName: "", observations: "" }
 
 const SHEET_STATUS: Record<string, { label: string; cls: string }> = {
@@ -282,6 +294,19 @@ const REFEREE_STATUS: Record<string, { label: string; cls: string }> = {
 const MATCH_PHASE: Record<string, string> = {
   POOL: "Poules", QUARTER: "Quart de finale", SEMI: "Demi-finale", FINAL: "Finale",
 }
+
+const SANCTION_TYPE: Record<string, { label: string; cls: string }> = {
+  YELLOW: { label: "Jaune", cls: "bg-yellow-100 text-yellow-800 dark:bg-yellow-950 dark:text-yellow-300" },
+  DOUBLE_YELLOW: { label: "2× jaune", cls: "bg-orange-100 text-orange-800 dark:bg-orange-950 dark:text-orange-300" },
+  RED: { label: "Rouge", cls: "bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300" },
+  ACCUMULATION: { label: "Accumulation", cls: "bg-purple-100 text-purple-800 dark:bg-purple-950 dark:text-purple-300" },
+}
+
+const SANCTION_STATUS: Record<string, { label: string; cls: string }> = {
+  ACTIVE: { label: "Active", cls: "bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300" },
+  SERVED: { label: "Servie", cls: "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300" },
+  CANCELED: { label: "Annulée", cls: "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300" },
+}
 const CARD_OPTIONS: { value: string; label: string }[] = [
   { value: "NONE", label: "Aucun carton" },
   { value: "YELLOW", label: "Carton jaune" },
@@ -344,6 +369,7 @@ export default function SportModule() {
   const [referees, setReferees] = useState<Referee[]>([])
   const [participants, setParticipants] = useState<Participant[]>([])
   const [matches, setMatches] = useState<Match[]>([])
+  const [sanctions, setSanctions] = useState<Sanction[]>([])
   const [standings, setStandings] = useState<StandingRow[]>([])
   const [standingsComp, setStandingsComp] = useState("ALL")
   const [standingsDisc, setStandingsDisc] = useState("ALL")
@@ -363,8 +389,9 @@ export default function SportModule() {
       fetch("/api/sport/referees").then((r) => r.json()).catch(() => []),
       fetch("/api/sport/participants").then((r) => r.json()).catch(() => []),
       fetch("/api/sport/matches").then((r) => r.json()).catch(() => []),
+      fetch("/api/sport/sanctions").then((r) => r.json()).catch(() => []),
     ])
-      .then(([me, c, d, dl, t, rf, p, m]) => {
+      .then(([me, c, d, dl, t, rf, p, m, s]) => {
         setIsRSA(isSportResponsable((me as { user?: { role?: string } })?.user?.role))
         setCompetitions(Array.isArray(c) ? c : [])
         setDisciplines(Array.isArray(d) ? d : [])
@@ -373,6 +400,7 @@ export default function SportModule() {
         setReferees(Array.isArray(rf) ? rf : [])
         setParticipants(Array.isArray(p) ? p : [])
         setMatches(Array.isArray(m) ? m : [])
+        setSanctions(Array.isArray(s) ? s : [])
       })
       .catch(() => toast.error("Impossible de charger les données sportives"))
       .finally(() => setLoading(false))
@@ -416,10 +444,12 @@ export default function SportModule() {
   const filteredReferees = referees.filter((r) => compFilter === "ALL" || r.competitionId === compFilter)
   const filteredParticipants = participants.filter((p) => compFilter === "ALL" || p.competitionId === compFilter)
   const filteredMatches = matches.filter((m) => compFilter === "ALL" || m.teamA?.competitionId === compFilter)
+  const filteredSanctions = sanctions.filter((s) => compFilter === "ALL" || s.competitionId === compFilter)
 
   const validatedTeams = teams.filter((t) => t.status === "VALIDATED")
   const openComps = competitions.filter((c) => c.status === "OPEN")
   const validatedReferees = referees.filter((r) => r.status === "VALIDATED")
+  const activeSanctions = sanctions.filter((s) => s.status === "ACTIVE")
 
   const rsa = isRSA
 
@@ -441,6 +471,7 @@ export default function SportModule() {
   const [sheetTarget, setSheetTarget] = useState<Match | null>(null)
   const [discOpen, setDiscOpen] = useState(false)
   const [discEditing, setDiscEditing] = useState<Discipline | null>(null)
+  const [sanctionOpen, setSanctionOpen] = useState(false)
 
   function openCompetitionDialog(c: Competition | null) { setCompEditing(c); setCompOpen(true) }
   function openDelegateDialog() { setDelegateOpen(true) }
@@ -563,6 +594,24 @@ export default function SportModule() {
     else toast.error(data?.error || "Échec de la suppression")
   }
 
+  async function setSanctionStatus(s: Sanction, status: string) {
+    const res = await fetch(`/api/sport/sanctions/${s.id}`, {
+      method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ status }),
+    })
+    const data = await res.json().catch(() => ({}))
+    if (!res.ok) return toast.error(data?.error || "Échec")
+    toast.success(status === "SERVED" ? `Suspension de ${s.playerName} marquée comme servie` : `Sanction de ${s.playerName} annulée`)
+    load()
+  }
+
+  async function removeSanction(s: Sanction) {
+    if (!confirm(`Supprimer définitivement la sanction de ${s.playerName} ?`)) return
+    const res = await fetch(`/api/sport/sanctions/${s.id}`, { method: "DELETE" })
+    const data = await res.json().catch(() => ({}))
+    if (res.ok) { toast.success("Sanction supprimée"); load() }
+    else toast.error(data?.error || "Échec")
+  }
+
   return (
     <div className="space-y-6">
       <PageHeader
@@ -626,6 +675,7 @@ export default function SportModule() {
           <TabsTrigger value="referees" className="gap-2"><Medal className="h-4 w-4" /> Arbitres</TabsTrigger>
           <TabsTrigger value="matches" className="gap-2"><CalendarDays className="h-4 w-4" /> Matchs</TabsTrigger>
           <TabsTrigger value="standings" className="gap-2"><Trophy className="h-4 w-4" /> Classements</TabsTrigger>
+          <TabsTrigger value="sanctions" className="gap-2"><AlertTriangle className="h-4 w-4" /> Sanctions{activeSanctions.length > 0 && <span className="ml-1 rounded-full bg-rose-100 px-1.5 text-[10px] font-semibold text-rose-700 dark:bg-rose-950 dark:text-rose-300">{activeSanctions.length}</span>}</TabsTrigger>
           <TabsTrigger value="disciplines" className="gap-2"><Dumbbell className="h-4 w-4" /> Disciplines</TabsTrigger>
         </TabsList>
 
@@ -1123,6 +1173,11 @@ export default function SportModule() {
                                   <FileText className="h-3.5 w-3.5" />
                                   {m.sheetStatus === "CONFIRMED" ? "Feuille" : m.sheetStatus === "DRAFT" ? "Feuille (brouillon)" : "Feuille de match"}
                                 </Button>
+                                {m.sheetStatus === "CONFIRMED" && (
+                                  <Button variant="ghost" size="icon" className="h-8 w-8 text-emerald-600" title="Télécharger le PDF" onClick={() => window.open(`/api/sport/matches/${m.id}/sheet/pdf`, "_blank")}>
+                                    <Download className="h-4 w-4" />
+                                  </Button>
+                                )}
                                 <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openMatchDialog(m)}><Pencil className="h-4 w-4" /></Button>
                                 <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => removeMatch(m)}><Trash2 className="h-4 w-4" /></Button>
                               </div>
@@ -1218,6 +1273,84 @@ export default function SportModule() {
                         <TableCell className="text-center text-sm tabular-nums hidden md:table-cell">{r.goalsAgainst}</TableCell>
                         <TableCell className="text-center text-sm tabular-nums">{r.goalDiff > 0 ? `+${r.goalDiff}` : r.goalDiff}</TableCell>
                         <TableCell className="text-right text-sm font-bold tabular-nums">{r.points}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
+          </SectionCard>
+        </TabsContent>
+
+        {/* ================= SANCTIONS ================= */}
+        <TabsContent value="sanctions" className="mt-4">
+          <SectionCard
+            title="Suspensions & sanctions"
+            description="Cartons et suspensions (accumulation de cartons jaunes, deuxième jaune, rouge) détectés automatiquement à la confirmation des feuilles de match, ou saisis manuellement — autorité du responsable des sports."
+            actions={rsa && (
+              <Button size="sm" className="gap-2" onClick={() => setSanctionOpen(true)}>
+                <Plus className="h-4 w-4" /> Nouvelle sanction
+              </Button>
+            )}
+          >
+            {loading ? (
+              <LoadingState rows={4} />
+            ) : filteredSanctions.length === 0 ? (
+              <EmptyState
+                icon={AlertTriangle}
+                title="Aucune sanction"
+                description="Les sanctions sont créées automatiquement lors de la confirmation d'une feuille de match (cartons) ou manuellement ici."
+              />
+            ) : (
+              <div className="rounded-lg border overflow-hidden">
+                <Table>
+                  <TableHeader className="bg-muted/50">
+                    <TableRow>
+                      <TableHead>Joueur</TableHead>
+                      <TableHead className="hidden md:table-cell">Équipe</TableHead>
+                      <TableHead className="hidden lg:table-cell">Compétition</TableHead>
+                      <TableHead>Sanction</TableHead>
+                      <TableHead className="hidden sm:table-cell">Suspension</TableHead>
+                      <TableHead>Statut</TableHead>
+                      <TableHead className="text-right">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredSanctions.map((s) => (
+                      <TableRow key={s.id}>
+                        <TableCell>
+                          <p className="font-medium">{s.playerName}</p>
+                          <p className="text-xs text-muted-foreground">{s.discipline?.name ?? "—"}</p>
+                        </TableCell>
+                        <TableCell className="hidden md:table-cell text-sm">{s.team ? `${s.team.name}${s.team.level ? ` · ${s.team.level}` : ""}` : "—"}</TableCell>
+                        <TableCell className="hidden lg:table-cell text-sm">{s.competition?.name ?? "—"}</TableCell>
+                        <TableCell>
+                          <StatusBadge status={s.cardType} map={SANCTION_TYPE} />
+                          {s.reason && <p className="text-[11px] text-muted-foreground mt-0.5 max-w-[220px] line-clamp-1">{s.reason}</p>}
+                        </TableCell>
+                        <TableCell className="hidden sm:table-cell text-sm">
+                          {s.matchesSuspended > 0 ? `${s.matchesSuspended} match${s.matchesSuspended > 1 ? "s" : ""}` : "—"}
+                        </TableCell>
+                        <TableCell><StatusBadge status={s.status} map={SANCTION_STATUS} /></TableCell>
+                        <TableCell className="text-right">
+                          {rsa && (
+                            <div className="flex items-center justify-end gap-1">
+                              {s.status === "ACTIVE" && (
+                                <Button variant="ghost" size="icon" className="h-8 w-8 text-emerald-600" title="Marquer comme servie" onClick={() => setSanctionStatus(s, "SERVED")}>
+                                  <CheckCircle2 className="h-4 w-4" />
+                                </Button>
+                              )}
+                              {s.status === "ACTIVE" && (
+                                <Button variant="ghost" size="icon" className="h-8 w-8 text-amber-600" title="Annuler la sanction" onClick={() => setSanctionStatus(s, "CANCELED")}>
+                                  <XCircle className="h-4 w-4" />
+                                </Button>
+                              )}
+                              <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" title="Supprimer" onClick={() => removeSanction(s)}>
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          )}
+                        </TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
@@ -1348,6 +1481,7 @@ export default function SportModule() {
       <TeamDetailDialog target={detailTarget} onClose={() => setDetailTarget(null)} />
       <RefereeDialog open={refereeOpen} onOpenChange={setRefereeOpen} editing={refereeEditing} competitions={competitions} compFilter={compFilter} onSaved={load} />
       <ParticipantDialog open={participantOpen} onOpenChange={setParticipantOpen} editing={participantEditing} competitions={competitions} compFilter={compFilter} onSaved={load} />
+      <SanctionDialog open={sanctionOpen} onOpenChange={setSanctionOpen} competitions={competitions} disciplines={disciplines} teams={teams} onSaved={load} />
       <MatchDialog open={matchOpen} onOpenChange={setMatchOpen} editing={matchEditing} competitions={competitions} teams={teams} referees={referees} compFilter={compFilter} onSaved={load} />
       <MatchSheetDialog match={sheetTarget} onOpenChange={(v) => { if (!v) setSheetTarget(null) }} onSaved={load} />
       <DisciplineDialog open={discOpen} onOpenChange={setDiscOpen} editing={discEditing} onSaved={load} />
@@ -2300,6 +2434,154 @@ function ParticipantDialog({ open, onOpenChange, editing, competitions, compFilt
               <Input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
             </div>
           </div>
+        </div>        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>Annuler</Button>
+          <Button onClick={save} disabled={saving}>{saving ? "Enregistrement…" : "Enregistrer"}</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+function SanctionDialog({ open, onOpenChange, competitions, disciplines, teams, onSaved }: {
+  open: boolean
+  onOpenChange: (v: boolean) => void
+  competitions: Competition[]
+  disciplines: Discipline[]
+  teams: Team[]
+  onSaved: () => void
+}) {
+  const [compId, setCompId] = useState("")
+  const [discId, setDiscId] = useState("")
+  const [teamId, setTeamId] = useState("")
+  const [playerName, setPlayerName] = useState("")
+  const [cardType, setCardType] = useState("YELLOW")
+  const [matchesSuspended, setMatchesSuspended] = useState("1")
+  const [reason, setReason] = useState("")
+  const [saving, setSaving] = useState(false)
+
+  useEffect(() => {
+    if (!open) return
+    setCompId("")
+    setDiscId("")
+    setTeamId("")
+    setPlayerName("")
+    setCardType("YELLOW")
+    setMatchesSuspended("1")
+    setReason("")
+  }, [open])
+
+  const comp = competitions.find((c) => c.id === compId)
+  const compDiscs = comp?.disciplines?.map((d) => d.discipline) ?? []
+  const compTeams = teams.filter((t) => t.competitionId === compId && (!discId || t.disciplineId === discId))
+  const teamPlayers = (teams.find((t) => t.id === teamId)?.playersDetails ?? [])
+
+  async function save() {
+    if (!compId) { toast.error("Choisissez une compétition"); return }
+    if (!discId) { toast.error("Choisissez une discipline"); return }
+    if (!playerName.trim()) { toast.error("Le nom du joueur est requis"); return }
+    setSaving(true)
+    try {
+      const res = await fetch("/api/sport/sanctions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          competitionId: compId,
+          disciplineId: discId,
+          teamId: teamId || undefined,
+          playerName: playerName.trim(),
+          cardType,
+          matchesSuspended: cardType === "YELLOW" ? 0 : Math.max(1, Number(matchesSuspended) || 1),
+          reason: reason.trim() || undefined,
+        }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data?.error || "Erreur")
+      toast.success("Sanction enregistrée")
+      onOpenChange(false)
+      onSaved()
+    } catch (e) {
+      toast.error((e as Error).message)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto scroll-thin">
+        <DialogHeader>
+          <DialogTitle>Nouvelle sanction</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-4 py-2">
+          <div className="space-y-1.5">
+            <Label className="text-xs font-medium">Compétition *</Label>
+            <Select value={compId} onValueChange={(v) => { setCompId(v); setDiscId(""); setTeamId("") }}>
+              <SelectTrigger><SelectValue placeholder="Choisir…" /></SelectTrigger>
+              <SelectContent>
+                {competitions.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-xs font-medium">Discipline *</Label>
+            <Select value={discId} onValueChange={(v) => { setDiscId(v); setTeamId("") }} disabled={!compId}>
+              <SelectTrigger><SelectValue placeholder="Choisir…" /></SelectTrigger>
+              <SelectContent>
+                {compDiscs.map((d) => <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-xs font-medium">Équipe</Label>
+            <Select value={teamId} onValueChange={setTeamId} disabled={!discId}>
+              <SelectTrigger><SelectValue placeholder="Optionnel — choisir…" /></SelectTrigger>
+              <SelectContent>
+                {compTeams.length === 0 ? (
+                  <p className="px-2 py-2 text-xs text-muted-foreground">Aucune équipe dans cette discipline</p>
+                ) : compTeams.map((t) => (
+                  <SelectItem key={t.id} value={t.id}>{t.name}{t.level ? ` · ${t.level}` : ""}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-xs font-medium">Joueur *</Label>
+            <Input value={playerName} onChange={(e) => setPlayerName(e.target.value)} placeholder="Nom et prénom du joueur" />
+            {teamPlayers.length > 0 && (
+              <div className="flex flex-wrap gap-1 pt-1">
+                {teamPlayers.slice(0, 10).map((p) => (
+                  <button
+                    key={p.id}
+                    type="button"
+                    onClick={() => setPlayerName(`${p.firstName} ${p.lastName}`)}
+                    className="rounded-full border px-2 py-0.5 text-[10px] text-muted-foreground hover:bg-accent transition-colors"
+                  >
+                    {p.firstName} {p.lastName}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-1.5">
+              <Label className="text-xs font-medium">Type de carton *</Label>
+              <Select value={cardType} onValueChange={setCardType}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {CARD_OPTIONS.map((o) => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs font-medium">Matchs de suspension</Label>
+              <Input type="number" min={0} value={cardType === "YELLOW" ? "0" : matchesSuspended} disabled={cardType === "YELLOW"} onChange={(e) => setMatchesSuspended(e.target.value)} />
+            </div>
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-xs font-medium">Motif</Label>
+            <Textarea value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Motif de la sanction…" rows={2} />
+          </div>
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>Annuler</Button>
@@ -2737,9 +3019,14 @@ function MatchSheetDialog({ match, onOpenChange, onSaved }: {
 
         <DialogFooter className="flex-wrap gap-2">
           {confirmed ? (
-            <Button variant="outline" className="gap-2" onClick={reopenSheet} disabled={saving}>
-              <RotateCcw className="h-4 w-4" /> Rouvrir pour correction
-            </Button>
+            <>
+              <Button variant="outline" className="gap-2" onClick={() => match && window.open(`/api/sport/matches/${match.id}/sheet/pdf`, "_blank")}>
+                <Download className="h-4 w-4" /> Télécharger le PDF
+              </Button>
+              <Button variant="outline" className="gap-2" onClick={reopenSheet} disabled={saving}>
+                <RotateCcw className="h-4 w-4" /> Rouvrir pour correction
+              </Button>
+            </>
           ) : (
             <>
               <Button variant="outline" onClick={saveDraft} disabled={saving || confirming}>
@@ -2763,7 +3050,7 @@ function DisciplineDialog({ open, onOpenChange, editing, onSaved }: {
   editing: Discipline | null
   onSaved: () => void
 }) {
-  const [form, setForm] = useState({ name: "", description: "", teamSize: "5", minTeamSize: "", maxTeamSize: "", active: true })
+  const [form, setForm] = useState({ name: "", description: "", teamSize: "5", minTeamSize: "", maxTeamSize: "", yellowAccumulation: "3", active: true })
   const [positions, setPositions] = useState<string[]>([])
   const [posInput, setPosInput] = useState("")
   const [saving, setSaving] = useState(false)
@@ -2777,11 +3064,12 @@ function DisciplineDialog({ open, onOpenChange, editing, onSaved }: {
         teamSize: String(editing.teamSize),
         minTeamSize: editing.minTeamSize != null ? String(editing.minTeamSize) : "",
         maxTeamSize: editing.maxTeamSize != null ? String(editing.maxTeamSize) : "",
+        yellowAccumulation: String((editing as Discipline & { yellowAccumulation?: number | null }).yellowAccumulation ?? 3),
         active: editing.active,
       })
       setPositions((editing.positions ?? []).map((p) => p.name))
     } else {
-      setForm({ name: "", description: "", teamSize: "5", minTeamSize: "", maxTeamSize: "", active: true })
+      setForm({ name: "", description: "", teamSize: "5", minTeamSize: "", maxTeamSize: "", yellowAccumulation: "3", active: true })
       setPositions([])
     }
     setPosInput("")
@@ -2799,13 +3087,14 @@ function DisciplineDialog({ open, onOpenChange, editing, onSaved }: {
     if (!form.name.trim()) { toast.error("Le nom de la discipline est requis"); return }
     const min = form.minTeamSize ? Number(form.minTeamSize) : null
     const max = form.maxTeamSize ? Number(form.maxTeamSize) : null
+    const yellowAccumulation = Math.max(1, Number(form.yellowAccumulation) || 3)
     if (min !== null && max !== null && min > max) { toast.error("Le minimum ne peut pas dépasser le maximum"); return }
     setSaving(true)
     try {
       const res = await fetch(editing ? `/api/sport/disciplines/${editing.id}` : "/api/sport/disciplines", {
         method: editing ? "PUT" : "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...form, minTeamSize: min, maxTeamSize: max, positions }),
+        body: JSON.stringify({ ...form, minTeamSize: min, maxTeamSize: max, yellowAccumulation, positions }),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data?.error || "Erreur")
@@ -2849,6 +3138,11 @@ function DisciplineDialog({ open, onOpenChange, editing, onSaved }: {
             </div>
           </div>
           <p className="text-[11px] text-muted-foreground -mt-2">Règles de composition : laissez Min/Max vides pour exiger la taille exacte de la discipline.</p>
+          <div className="space-y-1.5">
+            <Label className="text-xs font-medium">Cartons jaunes avant suspension</Label>
+            <Input type="number" min={1} value={form.yellowAccumulation} onChange={(e) => setForm({ ...form, yellowAccumulation: e.target.value })} />
+            <p className="text-[11px] text-muted-foreground">Nombre de cartons jaunes accumulés déclenchant une suspension (défaut 3).</p>
+          </div>
           <div className="space-y-1.5">
             <Label className="text-xs font-medium">Postes configurables (optionnel)</Label>
             <div className="flex gap-2">

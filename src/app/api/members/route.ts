@@ -1,11 +1,19 @@
 import { NextRequest } from "next/server"
 import { db } from "@/lib/db"
-import { ok, err, audit, serialize, getCurrentUserId } from "@/lib/sgiau/api"
+import { ok, err, audit, serialize, getCurrentUserId, requireStaff } from "@/lib/sgiau/api"
 import { normalizeFiliere, normalizeLevel, isAP, birthDateError } from "@/lib/sgiau/constants"
 
 export const dynamic = "force-dynamic"
 
 export async function GET(req: NextRequest) {
+  // Registre complet des membres (coordonnées personnelles) — réservé au staff.
+  // La sélection des joueurs côté app membre passe par l'endpoint scopé
+  // GET /api/member-space/sport/delegations (classe/niveau du délégué uniquement).
+  const gate = await requireStaff()
+  if (gate.error !== null) {
+    return err(gate.error === 401 ? "Non authentifié" : "Réservé au personnel autorisé", gate.error)
+  }
+
   const url = new URL(req.url)
   const q = url.searchParams.get("q")?.trim()
   const status = url.searchParams.get("status")

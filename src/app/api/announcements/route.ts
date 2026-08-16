@@ -10,12 +10,21 @@ export async function GET(req: NextRequest) {
   const where: Record<string, unknown> = {}
   if (scope === "staff") where.audience = "STAFF"
   if (scope === "members") where.audience = { in: ["ALL", "MEMBERS"] }
-  const items = await db.announcement.findMany({
-    where,
-    orderBy: [{ pinned: "desc" }, { publishedAt: "desc" }],
-    take: 100,
-  })
-  return ok(serialize(items))
+  // Repli défensif : un aléa de connexion (pooler Supabase qui ferme les
+  // connexions inactives) ne doit jamais transformer cette lecture en 500 —
+  // l'interface SAS affiche alors une liste vide plutôt qu'une erreur fatale.
+  // Même convention que GET /api/member-space/announcements.
+  try {
+    const items = await db.announcement.findMany({
+      where,
+      orderBy: [{ pinned: "desc" }, { publishedAt: "desc" }],
+      take: 100,
+    })
+    return ok(serialize(items))
+  } catch (e) {
+    console.error("announcements: lecture impossible, liste vide renvoyée", (e as Error).message)
+    return ok([])
+  }
 }
 
 /** Publication depuis le SAS — diffusion vers l'application étudiante (sync API) + notification. */

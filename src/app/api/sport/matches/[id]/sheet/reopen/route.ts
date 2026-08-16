@@ -32,6 +32,12 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
       scoreB: null,
     },
   })
+
+  // Les sanctions issues de la feuille rouverte sont annulées (le match est rejoué)
+  const canceled = await db.sportSanction.updateMany({
+    where: { matchId: id, status: "ACTIVE" },
+    data: { status: "CANCELED" },
+  })
   await audit({
     userId: gate.user.id,
     action: "UPDATE",
@@ -39,7 +45,7 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
     entityId: id,
     before,
     after,
-    description: `Réouverture de la feuille de match ${before.sheetNumber ?? ""} pour correction`,
+    description: `Réouverture de la feuille de match ${before.sheetNumber ?? ""} pour correction${canceled.count ? ` (${canceled.count} sanction(s) annulée(s))` : ""}`,
   })
   return ok(serialize(after))
 }

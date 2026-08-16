@@ -1,11 +1,17 @@
 import { NextRequest } from "next/server"
 import { db } from "@/lib/db"
-import { ok, serialize } from "@/lib/sgiau/api"
+import { ok, err, serialize, requireStaff } from "@/lib/sgiau/api"
 
 export const dynamic = "force-dynamic"
 
 // GET — full finance payload: accounts (flat with parent), ledgerEntries, fiscalYears, balance (per account sums)
+// Données financières de l'amicale — réservées au staff.
 export async function GET(req: NextRequest) {
+  const gate = await requireStaff()
+  if (gate.error !== null) {
+    return err(gate.error === 401 ? "Non authentifié" : "Réservé au personnel autorisé", gate.error)
+  }
+
   const url = new URL(req.url)
   const fiscalYearId = url.searchParams.get("fiscalYearId")
   const accountId = url.searchParams.get("accountId")

@@ -97,7 +97,7 @@ export async function POST(req: NextRequest) {
         competitionId,
         disciplineId,
         memberId: targetId,
-        delegateId: delegate.id,
+        delegateId: delegate.memberId,
         position: pos,
         direction: "DELEGATE",
         status: "PENDING",
@@ -175,7 +175,7 @@ export async function POST(req: NextRequest) {
       competitionId,
       disciplineId,
       memberId: r.memberId,
-      delegateId: delegate.id,
+      delegateId: delegate.memberId,
       position: pos,
       direction: "STUDENT",
       status: "PENDING",
@@ -195,7 +195,7 @@ export async function POST(req: NextRequest) {
 
   // Notification au responsable sportif de classe
   await notifyMember({
-    memberId: delegate.id,
+    memberId: delegate.memberId,
     title: "Nouvelle demande de participation",
     message: `${student.firstName} ${student.lastName} souhaite jouer au poste « ${pos} » dans ${competition.name}.`,
     type: "SPORT",

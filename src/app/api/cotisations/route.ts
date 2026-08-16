@@ -1,12 +1,16 @@
 import { NextRequest } from "next/server"
 import { db } from "@/lib/db"
-import { ok, err, audit, serialize, getCurrentUserId } from "@/lib/sgiau/api"
+import { ok, err, audit, serialize, getCurrentUserId, requireStaff } from "@/lib/sgiau/api"
 import { normalizeFiliere, normalizeLevel } from "@/lib/sgiau/constants"
 
 export const dynamic = "force-dynamic"
 
-// GET — cotisation types + recent payments
+// GET — cotisation types + recent payments (données financières — réservé au staff)
 export async function GET(req: NextRequest) {
+  const gate = await requireStaff()
+  if (gate.error !== null) {
+    return err(gate.error === 401 ? "Non authentifié" : "Réservé au personnel autorisé", gate.error)
+  }
   const url = new URL(req.url)
   const paymentsLimit = Math.min(parseInt(url.searchParams.get("paymentsLimit") || "50"), 500)
 

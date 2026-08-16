@@ -4,8 +4,8 @@ import { useEffect, useState, useCallback, useRef } from "react"
 import { PageHeader, SectionCard, EmptyState, LoadingState, Money } from "@/components/sgiau/ui"
 import {
   Smartphone, Home, Wallet, FileText, Send, User, LogOut, Pin, CheckCircle2,
-  AlertCircle, Download, ChevronRight, Bell, Search, MessageSquare, Loader2,
-  Trophy, CalendarDays, MapPin, Clock, UserPlus, Trash2, Pencil, Save, ExternalLink, Newspaper, XCircle,
+  AlertCircle, Download, ChevronRight, ChevronDown, Bell, Search, MessageSquare, Loader2,
+  Trophy, CalendarDays, MapPin, Clock, UserPlus, Trash2, Pencil, Save, ExternalLink, Newspaper, XCircle, AlertTriangle, BarChart3, Goal,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -22,6 +22,7 @@ import {
 import { toast } from "sonner"
 import { formatDate, formatDateTime, initials } from "@/lib/sgiau/format"
 import { UCAB_FULL_NAME } from "@/lib/sgiau/constants"
+import { cn } from "@/lib/utils"
 import { QrBlock } from "@/components/sgiau/qr-block"
 import { FadeIn, Stagger, StaggerItem } from "@/components/motion/fade-in"
 import { FileUploadButton, fileAcceptByType } from "@/components/sgiau/upload-button"
@@ -60,7 +61,7 @@ export const REQUEST_TYPES: Record<string, string> = {
   OTHER: "Autre",
 }
 
-export type Tab = "home" | "payments" | "documents" | "requests" | "news" | "sport" | "discussion" | "profile"
+export type Tab = "home" | "payments" | "documents" | "requests" | "news" | "sport" | "stats" | "discussion" | "profile"
 
 export const ANNOUNCEMENT_CATEGORIES: Record<string, { label: string; cls: string; icon: string }> = {
   GENERAL: { label: "Générale", cls: "bg-slate-100 text-slate-700", icon: "📢" },
@@ -310,13 +311,16 @@ export default function MemberSpaceModule() {
                 {tab === "sport" && (
                   <SportTab profile={profile} memberId={selectedMemberId} />
                 )}
+                {tab === "stats" && (
+                  <StatisticsTab />
+                )}
                 {tab === "profile" && (
                   <ProfileTab profile={profile} />
                 )}
               </div>
 
               {/* Bottom tabs */}
-              <div className="grid grid-cols-8 border-t bg-card">
+              <div className="grid grid-cols-9 border-t bg-card">
                 {([
                   { key: "home", label: "Accueil", icon: Home },
                   { key: "payments", label: "Cotis.", icon: Wallet },
@@ -324,6 +328,7 @@ export default function MemberSpaceModule() {
                   { key: "requests", label: "Demandes", icon: Send },
                   { key: "news", label: "Actus", icon: Newspaper },
                   { key: "sport", label: "Sport", icon: Trophy },
+                  { key: "stats", label: "Stats", icon: BarChart3 },
                   { key: "discussion", label: "Discussion", icon: MessageSquare },
                   { key: "profile", label: "Profil", icon: User },
                 ] as { key: Tab; label: string; icon: React.ComponentType<{ className?: string }> }[]).map((t) => {
@@ -683,6 +688,60 @@ const MATCH_PHASE_LABEL: Record<string, string> = {
   POOL: "Poules", QUARTER: "Quart de finale", SEMI: "Demi-finale", FINAL: "Finale",
 }
 
+function sheetPlayers(sheet: any, key: "playersA" | "playersB"): any[] {
+  const s = (sheet ?? {}) as Record<string, unknown>
+  return Array.isArray(s[key]) ? (s[key] as any[]) : []
+}
+
+function sheetText(sheet: any, key: string): string {
+  const s = (sheet ?? {}) as Record<string, unknown>
+  return typeof s[key] === "string" ? (s[key] as string) : ""
+}
+
+const CARD_ICON: Record<string, string> = {
+  YELLOW: "🟨", DOUBLE_YELLOW: "🟨🟨", RED: "🟥", ACCUMULATION: "🟨",
+}
+
+const SANCTION_LABEL: Record<string, string> = {
+  YELLOW: "Carton jaune", DOUBLE_YELLOW: "Deuxième jaune", RED: "Carton rouge", ACCUMULATION: "Accumulation de cartons",
+}
+
+function SheetTeamDetail({ teamName, players }: { teamName: string; players: any[] }) {
+  return (
+    <div>
+      <p className="text-[9px] font-semibold uppercase tracking-wide text-muted-foreground">{teamName || "Équipe"}</p>
+      <div className="mt-0.5 space-y-0.5">
+        {players.length === 0 ? (
+          <p className="text-[10px] text-muted-foreground">Joueurs non renseignés</p>
+        ) : (
+          players.map((p: any, i: number) => {
+            const goals = Math.max(0, Number(p?.goals) || 0)
+            const cards = typeof p?.cards === "string" ? p.cards : "NONE"
+            return (
+              <div key={i} className="flex items-center justify-between gap-2 text-[10px]">
+                <span className="min-w-0 flex-1 truncate">
+                  {p?.name || "—"}
+                  {p?.number !== null && p?.number !== undefined && p?.number !== "" && (
+                    <span className="text-muted-foreground"> · n°{p.number}</span>
+                  )}
+                </span>
+                <span className="flex shrink-0 items-center gap-1">
+                  {cards !== "NONE" && CARD_ICON[cards] && (
+                    <span className="rounded bg-rose-100 px-1 py-0.5 text-[8px] font-semibold text-rose-700 dark:bg-rose-950 dark:text-rose-300">{CARD_ICON[cards]}</span>
+                  )}
+                  {goals > 0 && (
+                    <span className="rounded bg-primary/10 px-1.5 py-0.5 font-semibold text-primary">{goals} but{goals > 1 ? "s" : ""}</span>
+                  )}
+                </span>
+              </div>
+            )
+          })
+        )}
+      </div>
+    </div>
+  )
+}
+
 function classLabel(className: string, level: string): string {
   return `${className}${level ? ` · ${level}` : ""}`
 }
@@ -695,6 +754,9 @@ export function SportTab({ profile, memberId }: { profile: MemberProfile; member
   const [participation, setParticipation] = useState<any | null>(null)
   const [standings, setStandings] = useState<Record<string, any[]>>({})
   const [playedMatches, setPlayedMatches] = useState<any[]>([])
+  const [openSheet, setOpenSheet] = useState<Record<string, boolean>>({})
+  const [sanctions, setSanctions] = useState<any[] | null>(null)
+  const myId = memberId ?? (profile as any)?.member?.id ?? ""
   const qs = memberId ? `?memberId=${encodeURIComponent(memberId)}` : ""
 
   // Tous les setState se trouvent dans les callbacks (.then/.catch) :
@@ -706,13 +768,15 @@ export function SportTab({ profile, memberId }: { profile: MemberProfile; member
       fetch("/api/sport/matches").then((r) => r.json()).catch(() => []),
       fetch("/api/sport/teams").then((r) => r.json()).catch(() => []),
       fetch(`/api/member-space/sport/participation${qs}`).then((r) => r.json()).catch(() => ({ mine: [], received: [] })),
-    ]).then(([dl, c, m, t, p]) => {
+      fetch(`/api/sport/sanctions${myId ? `?memberId=${encodeURIComponent(myId)}` : ""}`).then((r) => r.json()).catch(() => []),
+    ]).then(([dl, c, m, t, p, s]) => {
       setDelegations(Array.isArray(dl) ? dl : [])
       const comps = (Array.isArray(c) ? c : []).filter((x: any) => x.status !== "CLOSED")
       setCompetitions(comps)
       setMatches(Array.isArray(m) ? m : [])
       setAllTeams(Array.isArray(t) ? t : [])
       setParticipation(p && typeof p === "object" ? p : { mine: [], received: [] })
+      setSanctions(Array.isArray(s) ? s : [])
       setPlayedMatches((Array.isArray(m) ? m : []).filter((x: any) => x.status === "PLAYED"))
       // Classements des compétitions lancées
       const launched = comps.filter((x: any) => x.status === "LAUNCHED")
@@ -825,6 +889,57 @@ export function SportTab({ profile, memberId }: { profile: MemberProfile; member
       {/* Ma participation sportive (étudiant) */}
       <ParticipationSection competitions={competitions} participation={participation} onChanged={load} />
 
+      {/* Suspensions & sanctions me concernant */}
+      <div className="rounded-lg border bg-card p-3">
+        <div className="flex items-center gap-2 mb-2">
+          <AlertTriangle className="h-4 w-4 text-amber-500" />
+          <p className="text-xs font-semibold">Suspensions & sanctions</p>
+        </div>
+        {sanctions === null ? (
+          <p className="text-xs text-muted-foreground p-3 text-center rounded-lg border">Chargement…</p>
+        ) : sanctions.length === 0 ? (
+          <p className="text-xs text-muted-foreground p-3 text-center rounded-lg border">
+            Aucune sanction en cours vous concernant. Restez fair-play ! 🏅
+          </p>
+        ) : (
+          <div className="space-y-2">
+            {sanctions.map((s: any) => (
+              <div key={s.id} className="rounded-lg border bg-muted/30 p-3">
+                <div className="flex items-center justify-between gap-2">
+                  <p className="flex items-center gap-1.5 text-xs font-semibold">
+                    <span>{CARD_ICON[s.cardType] ?? "🟨"}</span>
+                    {SANCTION_LABEL[s.cardType] ?? s.cardType}
+                  </p>
+                  {s.status === "ACTIVE" ? (
+                    <span className="rounded-full bg-rose-100 px-2 py-0.5 text-[9px] font-semibold text-rose-700 dark:bg-rose-950 dark:text-rose-300">Active</span>
+                  ) : (
+                    <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[9px] font-semibold text-muted-foreground dark:bg-slate-800">{s.status === "SERVED" ? "Servie" : "Annulée"}</span>
+                  )}
+                </div>
+                <p className="mt-1 text-[10px] text-muted-foreground">
+                  {s.team?.name ? `${s.team.name}${s.team.level ? ` · ${s.team.level}` : ""}` : "Équipe"}
+                  {s.competition?.name ? ` · ${s.competition.name}` : ""}
+                </p>
+                {s.matchesSuspended > 0 && (
+                  <p className="mt-1 text-[11px] font-medium text-rose-700 dark:text-rose-300">
+                    Suspendu {s.matchesSuspended} match{s.matchesSuspended > 1 ? "s" : ""}
+                  </p>
+                )}
+                {s.reason && <p className="mt-0.5 text-[10px] text-muted-foreground">{s.reason}</p>}
+                {s.match && (
+                  <p className="mt-0.5 flex items-center gap-1 text-[10px] text-muted-foreground">
+                    <Clock className="h-3 w-3" /> Match du {formatDate(s.match.date)}
+                  </p>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+        <p className="mt-2 text-[9px] text-muted-foreground">
+          Les suspensions sont prononcées par la Commission Sportive (cartons, accumulation) — les équipes concernées sont notifiées.
+        </p>
+      </div>
+
       {/* Dates de compétition */}
       <div className="rounded-lg border bg-card p-3 space-y-3">
         <div className="flex items-center gap-2">
@@ -900,18 +1015,56 @@ export function SportTab({ profile, memberId }: { profile: MemberProfile; member
             <p className="text-xs text-muted-foreground p-3 text-center rounded-lg border">Aucun résultat publié pour le moment</p>
           ) : (
             <div className="space-y-1.5">
-              {playedMatches.map((m: any) => (
-                <div key={m.id} className="rounded-lg border bg-muted/30 px-3 py-2">
-                  <p className="text-[9px] font-semibold uppercase tracking-wide text-primary">{MATCH_PHASE_LABEL[m.phase] ?? m.phase}</p>
-                  <div className="flex items-center justify-between gap-2 text-sm font-medium mt-0.5">
-                    <span className="min-w-0 flex-1 truncate text-right">{m.teamA?.name ?? "—"}</span>
-                    <span className="shrink-0 rounded bg-primary/10 px-2 py-0.5 text-xs font-bold">
-                      {m.scoreA ?? 0} – {m.scoreB ?? 0}
-                    </span>
-                    <span className="min-w-0 flex-1 truncate">{m.teamB?.name ?? "—"}</span>
+              {playedMatches.map((m: any) => {
+                const detailed = m.sheetStatus === "CONFIRMED" && m.sheet
+                const expanded = !!openSheet[m.id]
+                return (
+                  <div key={m.id} className="rounded-lg border bg-muted/30 px-3 py-2">
+                    <div className="flex items-center justify-between gap-1">
+                      <p className="text-[9px] font-semibold uppercase tracking-wide text-primary">{MATCH_PHASE_LABEL[m.phase] ?? m.phase}</p>
+                      {m.sheetStatus === "CONFIRMED" && m.sheetNumber && (
+                        <span className="rounded bg-emerald-100 px-1.5 py-0.5 font-mono text-[8px] font-semibold text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300">Feuille {m.sheetNumber}</span>
+                      )}
+                    </div>
+                    <div className="flex items-center justify-between gap-2 text-sm font-medium mt-0.5">
+                      <span className="min-w-0 flex-1 truncate text-right">{m.teamA?.name ?? "—"}</span>
+                      <span className="shrink-0 rounded bg-primary/10 px-2 py-0.5 text-xs font-bold">
+                        {m.scoreA ?? 0} – {m.scoreB ?? 0}
+                      </span>
+                      <span className="min-w-0 flex-1 truncate">{m.teamB?.name ?? "—"}</span>
+                    </div>
+                    {detailed && (
+                      <button
+                        type="button"
+                        className="mt-1.5 flex items-center gap-1 text-[10px] font-medium text-primary"
+                        onClick={() => setOpenSheet((s) => ({ ...s, [m.id]: !s[m.id] }))}
+                      >
+                        <ChevronDown className={cn("h-3 w-3 transition-transform", expanded && "rotate-180")} />
+                        {expanded ? "Masquer la feuille de match" : "Voir la feuille de match (buteurs, cartons)"}
+                      </button>
+                    )}
+                    {expanded && detailed && (
+                      <div className="mt-2 space-y-2 border-t pt-2">
+                        <SheetTeamDetail teamName={m.teamA?.name} players={sheetPlayers(m.sheet, "playersA")} />
+                        <SheetTeamDetail teamName={m.teamB?.name} players={sheetPlayers(m.sheet, "playersB")} />
+                        {(sheetText(m.sheet, "refereeName") || sheetText(m.sheet, "observations")) && (
+                          <div className="space-y-0.5 text-[10px] text-muted-foreground">
+                            {sheetText(m.sheet, "refereeName") && <p><span className="font-medium">Arbitre :</span> {sheetText(m.sheet, "refereeName")}</p>}
+                            {sheetText(m.sheet, "observations") && <p><span className="font-medium">Observations :</span> {sheetText(m.sheet, "observations")}</p>}
+                          </div>
+                        )}
+                        <a
+                          href={`/api/sport/matches/${m.id}/sheet/pdf`}
+                          download={`feuille-${m.sheetNumber ?? m.id}.pdf`}
+                          className="mt-1.5 inline-flex items-center gap-1 rounded-lg border border-primary/40 px-2.5 py-1.5 text-[10px] font-medium text-primary hover:bg-primary/10"
+                        >
+                          <Download className="h-3.5 w-3.5" /> Télécharger le PDF (feuille officielle)
+                        </a>
+                      </div>
+                    )}
                   </div>
-                </div>
-              ))}
+                )
+              })}
             </div>
           )}
         </div>
@@ -1004,6 +1157,175 @@ const PARTICIPATION_STATUS: Record<string, { label: string; cls: string }> = {
   PENDING: { label: "En attente", cls: "bg-amber-50 text-amber-700 border-amber-200" },
   ACCEPTED: { label: "Acceptée", cls: "bg-emerald-50 text-emerald-700 border-emerald-200" },
   REFUSED: { label: "Refusée", cls: "bg-rose-50 text-rose-700 border-rose-200" },
+}
+
+interface StatScorer {
+  playerName: string
+  teamId: string
+  teamName: string
+  disciplineId: string
+  disciplineName: string
+  goals: number
+  matches: number
+}
+
+interface StatCardRow {
+  playerName: string
+  teamId: string
+  teamName: string
+  disciplineId: string
+  disciplineName: string
+  yellows: number
+  doubleYellows: number
+  reds: number
+}
+
+const STAT_MEDALS = ["🥇", "🥈", "🥉"]
+
+/**
+ * Statistiques sportives publiées : meilleurs buteurs et cartons,
+ * issus des feuilles de match officiellement confirmées.
+ */
+export function StatisticsTab() {
+  const [stats, setStats] = useState<{ scorers: StatScorer[]; cards: StatCardRow[] } | null>(null)
+  const [competitions, setCompetitions] = useState<any[]>([])
+  const [compFilter, setCompFilter] = useState("ALL")
+  const [loading, setLoading] = useState(true)
+
+  const load = useCallback(() => {
+    Promise.all([
+      fetch("/api/sport/competitions").then((r) => r.json()).catch(() => []),
+      fetch(`/api/sport/stats${compFilter !== "ALL" ? `?competitionId=${encodeURIComponent(compFilter)}` : ""}`)
+        .then((r) => r.json()).catch(() => ({ scorers: [], cards: [] })),
+    ]).then(([c, s]) => {
+      setCompetitions(Array.isArray(c) ? c : [])
+      setStats(s && typeof s === "object" ? { scorers: Array.isArray(s.scorers) ? s.scorers : [], cards: Array.isArray(s.cards) ? s.cards : [] } : { scorers: [], cards: [] })
+    }).finally(() => setLoading(false))
+  }, [compFilter])
+
+  useEffect(() => { load() }, [load])
+
+  const scorers = (stats?.scorers ?? []).slice(0, 10)
+  const cards = (stats?.cards ?? []).slice(0, 10)
+
+  return (
+    <div className="p-3 space-y-3">
+      <FadeIn>
+        <div className="rounded-xl bg-gradient-to-br from-emerald-700 to-emerald-900 text-emerald-50 p-4 relative overflow-hidden">
+          <div className="pointer-events-none absolute -top-8 -right-8 h-24 w-24 rounded-full bg-white/15 blur-xl" />
+          <div className="flex items-center gap-2">
+            <BarChart3 className="h-5 w-5" />
+            <p className="text-sm font-semibold">Statistiques sportives</p>
+          </div>
+          <p className="text-[10px] opacity-80 mt-1">
+            Meilleurs buteurs et cartons — issus des feuilles de match officiellement confirmées
+          </p>
+        </div>
+      </FadeIn>
+
+      <div className="rounded-lg border bg-card p-3 space-y-1.5">
+        <Label className="text-xs font-medium">Compétition</Label>
+        <Select value={compFilter} onValueChange={setCompFilter}>
+          <SelectTrigger><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="ALL">Toutes les compétitions</SelectItem>
+            {competitions.filter((c: any) => c.status !== "CLOSED").map((c: any) => (
+              <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
+      {loading ? (
+        <p className="text-xs text-muted-foreground p-3 text-center rounded-lg border">Chargement des statistiques…</p>
+      ) : scorers.length === 0 && cards.length === 0 ? (
+        <div className="rounded-lg border bg-card p-3">
+          <div className="flex items-center gap-2 mb-2">
+            <BarChart3 className="h-4 w-4 text-primary" />
+            <p className="text-xs font-semibold">Statistiques</p>
+          </div>
+          <p className="text-xs text-muted-foreground p-3 text-center rounded-lg border">
+            Les statistiques seront publiées après la confirmation officielle des premières feuilles de match.
+          </p>
+        </div>
+      ) : (
+        <>
+          {/* Meilleurs buteurs */}
+          <div className="rounded-lg border bg-card p-3">
+            <div className="flex items-center gap-2 mb-2">
+              <Goal className="h-4 w-4 text-primary" />
+              <p className="text-xs font-semibold">Meilleurs buteurs</p>
+            </div>
+            {scorers.length === 0 ? (
+              <p className="text-xs text-muted-foreground p-3 text-center rounded-lg border">Aucun but marqué pour le moment</p>
+            ) : (
+              <div className="space-y-2">
+                {scorers.map((s, i) => (
+                  <div key={`${s.playerName}-${s.teamId}`} className="rounded-lg border bg-muted/30 p-2.5">
+                    <div className="flex items-center gap-2">
+                      <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary/10 text-[11px] font-bold text-primary">
+                        {i < 3 ? STAT_MEDALS[i] : i + 1}
+                      </span>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-xs font-semibold truncate">{s.playerName}</p>
+                        <p className="text-[9px] text-muted-foreground truncate">
+                          {s.teamName}{s.disciplineName ? ` · ${s.disciplineName}` : ""}
+                        </p>
+                      </div>
+                      <div className="text-right shrink-0">
+                        <p className="text-sm font-bold text-primary tabular-nums">{s.goals}</p>
+                        <p className="text-[9px] text-muted-foreground">but{s.goals > 1 ? "s" : ""} · {s.matches} match{s.matches > 1 ? "s" : ""}</p>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Cartons */}
+          <div className="rounded-lg border bg-card p-3">
+            <div className="flex items-center gap-2 mb-2">
+              <AlertTriangle className="h-4 w-4 text-amber-500" />
+              <p className="text-xs font-semibold">Cartons</p>
+            </div>
+            {cards.length === 0 ? (
+              <p className="text-xs text-muted-foreground p-3 text-center rounded-lg border">Aucun carton pour le moment</p>
+            ) : (
+              <div className="space-y-2">
+                {cards.map((c, i) => (
+                  <div key={`${c.playerName}-${c.teamId}`} className="rounded-lg border bg-muted/30 p-2.5">
+                    <div className="flex items-center gap-2">
+                      <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-amber-500/10 text-[11px] font-bold text-amber-600">
+                        {i + 1}
+                      </span>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-xs font-semibold truncate">{c.playerName}</p>
+                        <p className="text-[9px] text-muted-foreground truncate">
+                          {c.teamName}{c.disciplineName ? ` · ${c.disciplineName}` : ""}
+                        </p>
+                      </div>
+                      <div className="flex shrink-0 items-center gap-1 text-[10px]">
+                        {c.yellows > 0 && (
+                          <span className="rounded bg-yellow-100 px-1.5 py-0.5 font-semibold text-yellow-800 dark:bg-yellow-950 dark:text-yellow-300">🟨 {c.yellows}</span>
+                        )}
+                        {c.doubleYellows > 0 && (
+                          <span className="rounded bg-orange-100 px-1.5 py-0.5 font-semibold text-orange-800 dark:bg-orange-950 dark:text-orange-300">🟨🟨 {c.doubleYellows}</span>
+                        )}
+                        {c.reds > 0 && (
+                          <span className="rounded bg-rose-100 px-1.5 py-0.5 font-semibold text-rose-800 dark:bg-rose-950 dark:text-rose-300">🟥 {c.reds}</span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </>
+      )}
+    </div>
+  )
 }
 
 /**
