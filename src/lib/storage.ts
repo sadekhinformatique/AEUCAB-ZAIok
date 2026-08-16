@@ -1,8 +1,12 @@
 /**
  * SGIAU — Couche de stockage des fichiers téléversés.
  *
- * Sauvegarde les uploads (images, vidéos, PDF…) sous `public/uploads/<dossier>/<année-mois>/`
- * et renvoie l'URL publique servie par Next.js (`/uploads/…`).
+ * Stockage hybride :
+ *  - si `BLOB_READ_WRITE_TOKEN` est défini (Vercel Blob, production),
+ *    les fichiers sont stockés dans le Blob Store de Vercel et servis via
+ *    son CDN — le filesystem serverless étant éphémère et en lecture seule ;
+ *  - sinon (dev / auto-hébergement), les fichiers sont écrits sous
+ *    `public/uploads/<dossier>/<année-mois>/` et servis par Next.js.
  *
  * Sécurité :
  *  - whitelist d'extensions (jamais d'exécutables, de scripts ou de HTML) ;
@@ -10,16 +14,12 @@
  *  - nom de fichier régénéré (aléatoire) — aucun chemin utilisateur ;
  *  - les extensions sont vérifiées à partir du nom DU FICHIER (source fiable),
  *    le MIME déclaré n'étant pas fiable côté client.
- *
- * Déploiement : fonctionne en dev et en auto-hébergement (le dossier `public/`
- * est persistant). Sur Vercel le filesystem est éphémère — branchez un stockage
- * externe (S3 / Vercel Blob) en remplaçant `saveUploadFile` ; les champs URL des
- * publications restent alors utilisables en secours.
  */
 
 import { randomBytes } from "node:crypto"
 import { mkdir, writeFile } from "node:fs/promises"
 import path from "node:path"
+import { put } from "@vercel/blob"
 
 export const MAX_UPLOAD_BYTES = 20 * 1024 * 1024 // 20 Mo
 
@@ -91,13 +91,31 @@ export async function saveUploadFile(file: File, folder = "general"): Promise<Up
   const subdir = `${stamp.getFullYear()}-${String(stamp.getMonth() + 1).padStart(2, "0")}`
   const random = randomBytes(8).toString("hex")
   const storedName = `${Date.now()}-${random}${ext}`
+  const pathname = `/uploads/${safeFolder}/${subdir}/${storedName}`
 
+  // ——— Vercel Blob (production) ———
+  if (process.env.BLOB_READ_WRITE_TOKEN) {
+    const blob = await put(pathname, bytes, {
+      access: "public",
+      addRandomSuffix: false,
+      contentType: "application/octet-stream",
+    })
+    return {
+      url: blob.url,
+      name: originalName,
+      type: ALLOWED_EXTENSIONS[ext] ?? "inconnu",
+      size: bytes.length,
+      extension: ext,
+    }
+  }
+
+  // ——— Filesystem local (dev / auto-hébergement) ———
   const dir = path.join(process.cwd(), "public", "uploads", safeFolder, subdir)
   await mkdir(dir, { recursive: true })
   await writeFile(path.join(dir, storedName), bytes)
 
   return {
-    url: `/uploads/${safeFolder}/${subdir}/${storedName}`,
+    url: pathname,
     name: originalName,
     type: ALLOWED_EXTENSIONS[ext] ?? "inconnu",
     size: bytes.length,

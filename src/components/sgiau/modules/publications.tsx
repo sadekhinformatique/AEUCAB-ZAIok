@@ -142,8 +142,15 @@ export default function PublicationsModule() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(form),
       })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data?.error || "Erreur")
+      // Réponse robuste : un 500 serveur peut renvoyer une page HTML (corps non-JSON)
+      let data: Record<string, unknown> = {}
+      const raw = await res.text()
+      try {
+        data = raw ? JSON.parse(raw) : {}
+      } catch {
+        data = {}
+      }
+      if (!res.ok) throw new Error((data?.error as string) || `Erreur serveur (${res.status}) — réessayez`)
       toast.success(editing ? "Publication mise à jour" : "Publication diffusée vers l'application étudiante")
       setOpen(false)
       load()

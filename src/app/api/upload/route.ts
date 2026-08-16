@@ -31,14 +31,19 @@ export async function POST(req: NextRequest) {
     return err((e as Error).message || "Fichier refusé", 422)
   }
 
-  await audit({
-    userId,
-    action: "UPLOAD",
-    entity: "File",
-    entityId: meta.url,
-    after: meta,
-    description: `Téléversement ${meta.type} « ${meta.name} » (${Math.round(meta.size / 1024)} Ko) → ${meta.url}`,
-  })
+  // Journalisation — ne doit JAMAIS faire échouer un upload (base indisponible…)
+  try {
+    await audit({
+      userId,
+      action: "UPLOAD",
+      entity: "File",
+      entityId: meta.url,
+      after: meta,
+      description: `Téléversement ${meta.type} « ${meta.name} » (${Math.round(meta.size / 1024)} Ko) → ${meta.url}`,
+    })
+  } catch (e) {
+    console.error("upload: audit impossible, fichier conservé", (e as Error).message)
+  }
 
   return ok(meta, 201)
 }
