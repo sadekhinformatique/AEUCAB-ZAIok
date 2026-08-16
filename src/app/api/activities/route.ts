@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server"
 import { db } from "@/lib/db"
 import { ok, err, audit, serialize, getCurrentUserId } from "@/lib/sgiau/api"
+import { resolveUrlArray } from "@/lib/storage"
 
 export const dynamic = "force-dynamic"
 
@@ -30,7 +31,7 @@ export async function GET(req: NextRequest) {
       _count: { select: { participants: true, expenses: true, presences: true } },
     },
   })
-  return ok(serialize(activities))
+  return ok(serialize(activities).map((a) => ({ ...a, photoUrls: resolveUrlArray(a.photoUrls) })))
 }
 
 export async function POST(req: NextRequest) {

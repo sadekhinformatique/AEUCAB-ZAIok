@@ -2,6 +2,7 @@ import { NextRequest } from "next/server"
 import { db } from "@/lib/db"
 import { ok, err, audit, serialize, getCurrentUserId, resolveMemberId, notifyRole } from "@/lib/sgiau/api"
 import { checkTeamRules, parseIdArray, stringifyIds, withTeamDetails, parseAttachments, stringifyAttachments } from "@/lib/sgiau/sport"
+import { resolveUrlObjects } from "@/lib/storage"
 import { SPORT_RESPONSABLE_ROLE } from "@/lib/sgiau/constants"
 
 export const dynamic = "force-dynamic"
@@ -20,7 +21,7 @@ export async function GET(req: NextRequest) {
     },
   })
   const detailed = await Promise.all(teams.map((t) => withTeamDetails(t)))
-  return ok(serialize(detailed))
+  return ok(serialize(detailed).map((t) => ({ ...t, attachments: resolveUrlObjects(t.attachments) })))
 }
 
 /**

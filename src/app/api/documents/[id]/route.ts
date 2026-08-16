@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server"
 import { db } from "@/lib/db"
 import { ok, err, audit, serialize, getCurrentUserId } from "@/lib/sgiau/api"
+import { resolveStorageUrl } from "@/lib/storage"
 
 export const dynamic = "force-dynamic"
 
@@ -8,7 +9,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
   const { id } = await params
   const doc = await db.document.findUnique({ where: { id } })
   if (!doc) return err("Document introuvable", 404)
-  return ok(serialize(doc))
+  return ok(serialize({ ...doc, fileUrl: resolveStorageUrl(doc.fileUrl) }))
 }
 
 export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {

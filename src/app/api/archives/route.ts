@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server"
 import { db } from "@/lib/db"
 import { ok, err, audit, serialize, getCurrentUserId } from "@/lib/sgiau/api"
+import { resolveStorageUrl } from "@/lib/storage"
 
 export const dynamic = "force-dynamic"
 
@@ -25,7 +26,7 @@ export async function GET(req: NextRequest) {
     orderBy: [{ year: "desc" }, { createdAt: "desc" }],
     take: 500,
   })
-  return ok(serialize(items))
+  return ok(serialize(items).map((a) => ({ ...a, fileUrl: resolveStorageUrl(a.fileUrl) })))
 }
 
 export async function POST(req: NextRequest) {

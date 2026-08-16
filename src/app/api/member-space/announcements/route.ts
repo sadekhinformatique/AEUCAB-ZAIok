@@ -1,5 +1,6 @@
 import { db } from "@/lib/db"
 import { ok, serialize } from "@/lib/sgiau/api"
+import { resolveStorageUrl, resolveUrlArray } from "@/lib/storage"
 
 export const dynamic = "force-dynamic"
 
@@ -12,7 +13,15 @@ export async function GET() {
       orderBy: [{ pinned: "desc" }, { publishedAt: "desc" }],
       take: 50,
     })
-    return ok(serialize(items))
+    return ok(
+      serialize(items).map((a) => ({
+        ...a,
+        imageUrl: resolveStorageUrl(a.imageUrl),
+        gallery: resolveUrlArray(a.gallery),
+        videoUrl: resolveStorageUrl(a.videoUrl),
+        fileUrl: resolveStorageUrl(a.fileUrl),
+      }))
+    )
   } catch (e) {
     console.error("announcements: lecture impossible, liste vide renvoyée", (e as Error).message)
     return ok([])

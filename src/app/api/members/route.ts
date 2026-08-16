@@ -2,6 +2,7 @@ import { NextRequest } from "next/server"
 import { db } from "@/lib/db"
 import { ok, err, audit, serialize, getCurrentUserId, requireStaff } from "@/lib/sgiau/api"
 import { normalizeFiliere, normalizeLevel, isAP, birthDateError } from "@/lib/sgiau/constants"
+import { resolveStorageUrl } from "@/lib/storage"
 
 export const dynamic = "force-dynamic"
 
@@ -41,7 +42,7 @@ export async function GET(req: NextRequest) {
     take: limit,
     include: { _count: { select: { payments: true } } },
   })
-  return ok(serialize(members))
+  return ok(serialize(members).map((m) => ({ ...m, photoUrl: resolveStorageUrl(m.photoUrl) })))
 }
 
 export async function POST(req: NextRequest) {

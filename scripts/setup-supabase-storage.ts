@@ -5,6 +5,7 @@
  * Usage : bun scripts/setup-supabase-storage.ts
  */
 import { createClient } from "@supabase/supabase-js"
+import { STORAGE_BUCKET, STORAGE_BUCKET_OPTIONS } from "../src/lib/storage"
 
 const rawUrl = process.env.SUPABASE_URL
 const rawKey = process.env.SUPABASE_SERVICE_ROLE_KEY
@@ -16,7 +17,7 @@ if (!rawUrl || !rawKey) {
 const url: string = rawUrl
 const key: string = rawKey
 
-const BUCKET = "uploads"
+const BUCKET = STORAGE_BUCKET
 
 async function main() {
   const supabase = createClient(url, key, { auth: { persistSession: false } })
@@ -40,22 +41,7 @@ async function main() {
   }
 
   // 2) Création
-  const { data, error } = await supabase.storage.createBucket(BUCKET, {
-    public: true,
-    fileSizeLimit: 20 * 1024 * 1024, // 20 Mo — cohérent avec MAX_UPLOAD_BYTES
-    allowedMimeTypes: [
-      "image/jpeg", "image/png", "image/gif", "image/webp", "image/svg+xml", "image/avif",
-      "video/mp4", "video/webm", "video/quicktime", "video/x-m4v",
-      "application/pdf", "application/msword",
-      "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-      "application/vnd.ms-excel",
-      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-      "application/vnd.ms-powerpoint",
-      "application/vnd.openxmlformats-officedocument.presentationml.presentation",
-      "text/plain", "text/csv",
-      "audio/mpeg", "audio/wav",
-    ],
-  })
+  const { data, error } = await supabase.storage.createBucket(BUCKET, STORAGE_BUCKET_OPTIONS)
   if (error) {
     console.error("createBucket:", error.message)
     process.exit(1)

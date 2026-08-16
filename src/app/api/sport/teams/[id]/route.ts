@@ -2,6 +2,7 @@ import { NextRequest } from "next/server"
 import { db } from "@/lib/db"
 import { ok, err, audit, serialize, requireSportResponsable, notifyMember } from "@/lib/sgiau/api"
 import { checkTeamRules, parseIdArray, stringifyIds, withTeamDetails, TEAM_STATUSES, parseAttachments, stringifyAttachments } from "@/lib/sgiau/sport"
+import { resolveUrlObjects } from "@/lib/storage"
 
 export const dynamic = "force-dynamic"
 
@@ -18,7 +19,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
   })
   if (!team) return err("Équipe introuvable", 404)
   const detailed = await withTeamDetails(team)
-  return ok(serialize(detailed))
+  return ok(serialize({ ...detailed, attachments: resolveUrlObjects(detailed.attachments) }))
 }
 
 /**

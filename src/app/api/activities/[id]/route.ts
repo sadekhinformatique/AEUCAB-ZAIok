@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server"
 import { db } from "@/lib/db"
 import { ok, err, audit, serialize, getCurrentUserId } from "@/lib/sgiau/api"
+import { resolveUrlArray } from "@/lib/storage"
 
 export const dynamic = "force-dynamic"
 
@@ -22,7 +23,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
     },
   })
   if (!activity) return err("Activité introuvable", 404)
-  return ok(serialize(activity))
+  return ok(serialize({ ...activity, photoUrls: resolveUrlArray(activity.photoUrls) }))
 }
 
 export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {

@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server"
 import { db } from "@/lib/db"
 import { ok, err, serialize, resolveMemberId } from "@/lib/sgiau/api"
+import { resolveStorageUrl } from "@/lib/storage"
 
 export const dynamic = "force-dynamic"
 
@@ -30,7 +31,7 @@ export async function GET(req: NextRequest) {
   const requests = await db.memberRequest.findMany({ where: { memberId }, orderBy: { createdAt: "desc" }, take: 20 })
 
   return ok(serialize({
-    member,
+    member: { ...member, photoUrl: resolveStorageUrl(member.photoUrl) },
     requests,
     stats: {
       totalPaid,
