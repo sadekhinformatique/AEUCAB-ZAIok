@@ -5,6 +5,7 @@ import { Moon, Sun, Menu, Search, Bell, LogOut } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { useSgiau } from "@/lib/sgiau/store"
+import { redirectOnAuthStatus } from "@/lib/sgiau/client-auth"
 import { useEffect, useState } from "react"
 import {
   DropdownMenu,
@@ -37,14 +38,8 @@ export function Topbar() {
   }, [])
 
   useEffect(() => {
-    // Session expirée / non authentifié → redirection propre vers la page de connexion
-    const redirectIfUnauthorized = (r: Response) => {
-      if (r.status === 401) {
-        window.location.assign("/login")
-        return true
-      }
-      return false
-    }
+    // 401 (session expirée) → /login ; 403 (mot de passe temporaire, mcp) → /change-password
+    const redirectIfUnauthorized = (r: Response) => redirectOnAuthStatus(r)
 
     fetch("/api/users/me")
       .then((r) => {

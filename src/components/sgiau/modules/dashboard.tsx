@@ -12,6 +12,7 @@ import {
   PieChart, Pie, Cell, BarChart, Bar, Legend,
 } from "recharts"
 import { useSgiau } from "@/lib/sgiau/store"
+import { redirectOnAuthStatus } from "@/lib/sgiau/client-auth"
 import { useReducedMotion } from "framer-motion"
 import { MEMBER_STATUS_COLORS, MEMBER_STATUS_LABELS, PAYMENT_MODE_LABELS } from "@/lib/sgiau/constants"
 import { Badge } from "@/components/ui/badge"
@@ -59,11 +60,8 @@ export default function DashboardModule() {
     setError(null)
     try {
       const res = await fetch("/api/dashboard")
-      // Session expirée / non authentifié → redirection propre vers la page de connexion
-      if (res.status === 401) {
-        window.location.assign("/login")
-        return
-      }
+      // 401 (session expirée) → /login ; 403 (mot de passe temporaire, mcp) → /change-password
+      if (redirectOnAuthStatus(res)) return
       const body = await res.json().catch(() => null)
       if (!res.ok) throw new Error(body?.error || `Erreur serveur (${res.status})`)
       if (!isDashData(body)) throw new Error("Données du tableau de bord indisponibles")

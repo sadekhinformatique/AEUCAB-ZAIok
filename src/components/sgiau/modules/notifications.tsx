@@ -15,6 +15,7 @@ import {
 import { Switch } from "@/components/ui/switch"
 import { toast } from "sonner"
 import { formatDateTime } from "@/lib/sgiau/format"
+import { redirectOnAuthStatus } from "@/lib/sgiau/client-auth"
 
 interface NotifItem {
   id: string
@@ -63,11 +64,8 @@ export default function NotificationsModule() {
     setLoading(true)
     try {
       const res = await fetch(`/api/notifications?${unreadOnly ? "unread=1" : ""}`)
-      // Session expirée / non authentifié → redirection propre vers la page de connexion
-      if (res.status === 401) {
-        window.location.assign("/login")
-        return
-      }
+      // 401 (session expirée) → /login ; 403 (mot de passe temporaire, mcp) → /change-password
+      if (redirectOnAuthStatus(res)) return
       const data = await res.json().catch(() => ({}))
       setItems(Array.isArray(data?.items) ? data.items : [])
     } catch {
@@ -83,10 +81,7 @@ export default function NotificationsModule() {
         fetch("/api/users?limit=500"),
         fetch("/api/members?limit=500"),
       ])
-      if (u.status === 401 || m.status === 401) {
-        window.location.assign("/login")
-        return
-      }
+      if (redirectOnAuthStatus(u) || redirectOnAuthStatus(m)) return
       const uj = await u.json().catch(() => ({}))
       const mj = await m.json().catch(() => ({}))
       setUsers(Array.isArray(uj?.items) ? uj.items.map((x: any) => ({ id: x.id, fullName: x.fullName, username: x.username })) : [])

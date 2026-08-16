@@ -18,6 +18,7 @@ import { toast } from "sonner"
 import { Money } from "@/components/sgiau/ui"
 import { QrBlock } from "@/components/sgiau/qr-block"
 import { formatDate } from "@/lib/sgiau/format"
+import { redirectOnAuthStatus } from "@/lib/sgiau/client-auth"
 import {
   APP_NAME, UCAB_FULL_NAME, FILIERES, LEVELS, isAP,
   birthDateError, ageFromBirthDate, MIN_STUDENT_AGE, MAX_STUDENT_AGE,
@@ -93,7 +94,12 @@ export function MemberApp() {
   const loadData = useCallback(async () => {
     try {
       const [p, a, d] = await Promise.all([
-        fetch("/api/member-space").then((r) => (r.ok ? r.json() : Promise.reject())),
+        fetch("/api/member-space").then((r) => {
+          // Compte en attente de changement de mot de passe (mcp) → écran dédié
+          if (redirectOnAuthStatus(r)) return Promise.reject()
+          if (!r.ok) return Promise.reject()
+          return r.json()
+        }),
         fetch("/api/member-space/announcements").then((r) => r.json()),
         fetch("/api/documents?visibility=MEMBERS&limit=30").then((r) => r.json()).catch(() => []),
       ])
