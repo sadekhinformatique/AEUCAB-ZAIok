@@ -10,11 +10,13 @@ export async function GET(req: NextRequest) {
   const q = url.searchParams.get("q")?.trim()
   const status = url.searchParams.get("status")
   const faculty = url.searchParams.get("faculty")
+  const level = url.searchParams.get("level")
   const limit = Math.min(parseInt(url.searchParams.get("limit") || "200"), 500)
 
   const where: Record<string, unknown> = {}
   if (status && status !== "ALL") where.status = status
   if (faculty && faculty !== "ALL") where.faculty = faculty
+  if (level) where.level = level === "AP" ? null : level
   if (q) {
     where.OR = [
       { firstName: { contains: q } },

@@ -138,6 +138,26 @@ résultats. `Votes internes` : votes anonymes avec options.
 - C'est lui qui crée les comptes du bureau exécutif et applique la politique de mot de
   passe fort. **Mot de passe `admin` : roté hors du dépôt (cf. DEPLOY.md).**
 
+#### 🏅 RESPONSABLE_SPORT — Responsable des sports de l'Amicale
+**Autorité sportive centrale** : seul décisionnaire du module **Sport**.
+- **Crée et configure les compétitions** (disciplines, classes concernées, participation
+  financière), **ouvre les inscriptions** puis **lance officiellement** la compétition.
+- **Désigne et valide les responsables sportifs de classe** (choisis parmi les étudiants
+  inscrits) et peut les révoquer.
+- **Valide ou refuse définitivement les équipes** (avec motif de refus) — même le
+  président ne peut pas valider à sa place ; les autres administrateurs sont en lecture
+  seule sur le module Sport.
+- **Crée les équipes exceptionnelles** et enregistre les **participants exceptionnels**
+  (administration universitaire : directeurs des études, responsables pédagogiques…,
+  sans compte utilisateur).
+- **Choisit, valide et affecte les arbitres** aux matchs ; programme les **matchs**.
+- **Retourne une équipe pour correction** (avec motif, distinct du refus) : le responsable
+  de classe corrige puis soumet à nouveau.
+- **Configure les disciplines** : règles de composition (min/max joueurs) et **postes
+  configurables** par sport (ex. football : Gardien, Défenseur, Milieu, Attaquant).
+- **Publie les actualités** (module « Publications & actualités ») : texte, image,
+  vidéo, PDF, lien — avec diffusion d'une **notification** à tous les membres.
+
 #### 👑 PRESIDENT — Président
 **Rôle décisionnel** : pilote l'amicale et a le dernier mot sur les validations.
 - **Valide en dernier ressort** les adhésions (après le secrétaire) — étape
@@ -180,6 +200,12 @@ résultats. `Votes internes` : votes anonymes avec options.
 **Rôle adhérent** : accès limité à l'**espace membre** (application mobile web).
 - Consulte les **annonces**, sa **cotisation** et ses **reçus**, et peut faire des
   **demandes**.
+- **Page Actualités** : centre de diffusion de l'Amicale (annonces, sport, cotisations,
+  activités) avec image, vidéo, PDF et liens ouvrables.
+- **Notifications** : cloche dans l'application (sélections, réponses, publications).
+- **Participation sportive** : envoie une demande (poste obligatoire) au **responsable
+  sportif de sa classe**, accepte ou refuse une **sélection directe** ; consulte les
+  **équipes, joueurs, postes, résultats et classements** publiés.
 - Ne modifie rien dans le back-office.
 
 #### ⚙️ CUSTOM — Rôle personnalisé
@@ -196,6 +222,7 @@ spécifiques de l'amicale (ex. responsable communication, responsable sport…).
 | `tresorier` | TRESORIER | tresorier@ucab.com |
 | `caissier` | CAISSIER | caissier@ucab.com |
 | `commissaire` | COMMISSAIRE | commissaire@ucab.com |
+| `responsable-sport` | RESPONSABLE_SPORT | sport@sgiau.local |
 
 > Les mots de passe de ces comptes ont été **réinitialisés** (mots de passe temporaires
 > affichés **une seule fois** lors de la réinitialisation, changement forcé au premier

@@ -36,6 +36,8 @@ export async function seedDatabase(force = false) {
       "expense", "expenseCategory", "cashMovement", "cashTransfer", "cashAccount",
       "ledgerEntry", "fiscalYear", "account", "receipt", "payment", "cotisationType",
       "adhesion", "member", "user",
+      "sportExceptionalParticipant", "sportCompetitionDiscipline", "sportDelegate", "sportReferee",
+      "sportMatch", "sportTeam", "sportCompetition", "sportDiscipline",
     ]
     for (const t of tables) {
       await db[t].deleteMany({})
@@ -51,6 +53,7 @@ export async function seedDatabase(force = false) {
       { username: "tresorier", email: "tresorier@sgiau.local", fullName: "Moussa Camara", role: "TRESORIER" },
       { username: "caissier", email: "caissier@sgiau.local", fullName: "Aminata Cissé", role: "CAISSIER" },
       { username: "commissaire", email: "commissaire@sgiau.local", fullName: "Ousmane Keïta", role: "COMMISSAIRE" },
+      { username: "responsable-sport", email: "sport@sgiau.local", fullName: "Responsable des sports de l'Amicale", role: "RESPONSABLE_SPORT" },
       { username: "admin", email: "admin@sgiau.local", fullName: "Administrateur SGIAU", role: "ADMIN_IT" },
     ].map((u) =>
       db.user.create({

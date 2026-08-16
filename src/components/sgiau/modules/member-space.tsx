@@ -5,7 +5,7 @@ import { PageHeader, SectionCard, EmptyState, LoadingState, Money } from "@/comp
 import {
   Smartphone, Home, Wallet, FileText, Send, User, LogOut, Pin, CheckCircle2,
   AlertCircle, Download, ChevronRight, Bell, Search, MessageSquare, Loader2,
-  Trophy, CalendarDays, MapPin, Clock, UserPlus, Trash2,
+  Trophy, CalendarDays, MapPin, Clock, UserPlus, Trash2, Pencil, Save, ExternalLink, Newspaper, XCircle,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -43,7 +43,11 @@ export interface MemberProfile {
   }
 }
 
-export interface Announcement { id: string; title: string; body: string; pinned: boolean; publishedAt: string }
+export interface Announcement {
+  id: string; title: string; body: string; pinned: boolean; publishedAt: string
+  category?: string; imageUrl?: string | null; gallery?: string | null; videoUrl?: string | null
+  fileUrl?: string | null; fileName?: string | null; linkUrl?: string | null; audience?: string
+}
 
 export const REQUEST_TYPES: Record<string, string> = {
   CERTIFICATE: "Attestation / Certificat",
@@ -52,7 +56,15 @@ export const REQUEST_TYPES: Record<string, string> = {
   OTHER: "Autre",
 }
 
-export type Tab = "home" | "payments" | "documents" | "requests" | "discussion" | "sport" | "profile"
+export type Tab = "home" | "payments" | "documents" | "requests" | "news" | "sport" | "discussion" | "profile"
+
+export const ANNOUNCEMENT_CATEGORIES: Record<string, { label: string; cls: string; icon: string }> = {
+  GENERAL: { label: "Générale", cls: "bg-slate-100 text-slate-700", icon: "📢" },
+  COTISATION: { label: "Cotisations", cls: "bg-amber-50 text-amber-700", icon: "💰" },
+  SPORT: { label: "Sport", cls: "bg-emerald-50 text-emerald-700", icon: "🏆" },
+  ACTIVITY: { label: "Activité", cls: "bg-cyan-50 text-cyan-700", icon: "📅" },
+  INFO: { label: "Information", cls: "bg-violet-50 text-violet-700", icon: "ℹ️" },
+}
 
 export default function MemberSpaceModule() {
   const [members, setMembers] = useState<SimpleMember[]>([])
@@ -263,9 +275,12 @@ export default function MemberSpaceModule() {
                     <p className="text-[10px] opacity-80">{profile.member.firstName} {profile.member.lastName}</p>
                   </div>
                 </div>
-                <button onClick={disconnect} className="rounded-lg p-1.5 hover:bg-primary-foreground/10" title="Déconnexion">
-                  <LogOut className="h-4 w-4" />
-                </button>
+                <div className="flex items-center gap-1">
+                  <NotificationBell memberId={selectedMemberId} />
+                  <button onClick={disconnect} className="rounded-lg p-1.5 hover:bg-primary-foreground/10" title="Déconnexion">
+                    <LogOut className="h-4 w-4" />
+                  </button>
+                </div>
               </div>
 
               {/* Content area */}
@@ -282,11 +297,14 @@ export default function MemberSpaceModule() {
                 {tab === "requests" && (
                   <RequestsTab profile={profile} onNew={() => setReqOpen(true)} />
                 )}
+                {tab === "news" && (
+                  <NewsTab announcements={announcements} memberId={selectedMemberId} />
+                )}
                 {tab === "discussion" && (
                   <DiscussionTab profile={profile} />
                 )}
                 {tab === "sport" && (
-                  <SportTab profile={profile} />
+                  <SportTab profile={profile} memberId={selectedMemberId} />
                 )}
                 {tab === "profile" && (
                   <ProfileTab profile={profile} />
@@ -294,12 +312,13 @@ export default function MemberSpaceModule() {
               </div>
 
               {/* Bottom tabs */}
-              <div className="grid grid-cols-7 border-t bg-card">
+              <div className="grid grid-cols-8 border-t bg-card">
                 {([
                   { key: "home", label: "Accueil", icon: Home },
                   { key: "payments", label: "Cotis.", icon: Wallet },
                   { key: "documents", label: "Docs", icon: FileText },
                   { key: "requests", label: "Demandes", icon: Send },
+                  { key: "news", label: "Actus", icon: Newspaper },
                   { key: "sport", label: "Sport", icon: Trophy },
                   { key: "discussion", label: "Discussion", icon: MessageSquare },
                   { key: "profile", label: "Profil", icon: User },
@@ -486,7 +505,12 @@ export function HomeTab({ profile, announcements, setTab }: { profile: MemberPro
 
       {/* Announcements */}
       <div>
-        <p className="text-xs font-medium text-muted-foreground mb-2">Annonces</p>
+        <div className="flex items-center justify-between mb-2">
+          <p className="text-xs font-medium text-muted-foreground">Annonces</p>
+          <button onClick={() => setTab("news")} className="text-[10px] font-medium text-primary hover:underline">
+            Toutes les actualités →
+          </button>
+        </div>
         {announcements.length === 0 ? (
           <p className="text-xs text-muted-foreground p-3 text-center rounded-lg border">Aucune annonce</p>
         ) : (
@@ -635,22 +659,13 @@ const REGLEMENT_ARTICLES = [
   "Disposition finale",
 ]
 
-// Compétitions sportives = activités dont le nom/description/lieu évoque le sport
-const SPORT_KEYWORDS = [
-  "sport", "foot", "basket", "volley", "hand", "match", "tournoi",
-  "compétition", "competition", "inter-classe", "interclasse", "inter classe",
-  "athlétisme", "athletisme", "judo", "karaté", "karate", "tennis", "badminton",
-]
-
-function isSportActivity(a: any): boolean {
-  const hay = `${a.name ?? ""} ${a.description ?? ""} ${a.location ?? ""}`.toLowerCase()
-  return SPORT_KEYWORDS.some((k) => hay.includes(k))
-}
-
 const MY_TEAM_STATUS: Record<string, { label: string; cls: string }> = {
-  INSCRIPTION: { label: "En attente de validation", cls: "bg-amber-50 text-amber-700 border-amber-200" },
-  CONFIRMED: { label: "Validée", cls: "bg-emerald-50 text-emerald-700 border-emerald-200" },
-  REJECTED: { label: "Rejetée", cls: "bg-rose-50 text-rose-700 border-rose-200" },
+  DRAFT: { label: "Brouillon", cls: "bg-slate-50 text-slate-700 border-slate-200" },
+  SUBMITTED: { label: "Soumise — à valider", cls: "bg-amber-50 text-amber-700 border-amber-200" },
+  UNDER_REVIEW: { label: "En vérification", cls: "bg-cyan-50 text-cyan-700 border-cyan-200" },
+  VALIDATED: { label: "Validée", cls: "bg-emerald-50 text-emerald-700 border-emerald-200" },
+  RETURNED: { label: "Retournée pour correction", cls: "bg-orange-50 text-orange-700 border-orange-200" },
+  REJECTED: { label: "Refusée", cls: "bg-rose-50 text-rose-700 border-rose-200" },
 }
 
 const MATCH_PHASE_LABEL: Record<string, string> = {
@@ -661,64 +676,51 @@ function classLabel(className: string, level: string): string {
   return `${className}${level ? ` · ${level}` : ""}`
 }
 
-export function SportTab({ profile }: { profile: MemberProfile }) {
-  const [competitions, setCompetitions] = useState<any[] | null>(null)
-  const [myTeams, setMyTeams] = useState<any[] | null>(null)
-  const [disciplines, setDisciplines] = useState<any[]>([])
+export function SportTab({ profile, memberId }: { profile: MemberProfile; memberId?: string }) {
+  const [delegations, setDelegations] = useState<any[] | null>(null)
+  const [competitions, setCompetitions] = useState<any[]>([])
   const [matches, setMatches] = useState<any[] | null>(null)
-  const [registeredTeams, setRegisteredTeams] = useState<any[] | null>(null)
-  const [teamForm, setTeamForm] = useState({ disciplineId: "", name: "", captainName: "", players: "" })
-  const [submitting, setSubmitting] = useState(false)
-  const [removingId, setRemovingId] = useState<string | null>(null)
-
-  const m = profile.member
-  const myClass = m.faculty ? `${m.faculty}${m.level ? ` · ${m.level}` : ""}` : null
+  const [allTeams, setAllTeams] = useState<any[] | null>(null)
+  const [participation, setParticipation] = useState<any | null>(null)
+  const [standings, setStandings] = useState<Record<string, any[]>>({})
+  const [playedMatches, setPlayedMatches] = useState<any[]>([])
+  const qs = memberId ? `?memberId=${encodeURIComponent(memberId)}` : ""
 
   // Tous les setState se trouvent dans les callbacks (.then/.catch) :
   // la règle react-hooks/set-state-in-effect l'exige pour les fonctions appelées depuis un effet.
   const load = useCallback(() => {
-    fetch("/api/activities?limit=100")
-      .then((r) => r.json())
-      .then((data) => {
-        const now = Date.now()
-        const upcoming = (Array.isArray(data) ? data : []).filter((a: any) => {
-          // Uniquement les compétitions sportives à venir ou en cours
-          if (a.status !== "PLANNED" && a.status !== "ONGOING") return false
-          if (!isSportActivity(a)) return false
-          const start = new Date(a.startDate).getTime()
-          const end = a.endDate ? new Date(a.endDate).getTime() : start
-          return end >= now - 24 * 60 * 60 * 1000
-        })
-        upcoming.sort((x: any, y: any) => new Date(x.startDate).getTime() - new Date(y.startDate).getTime())
-        setCompetitions(upcoming)
-      })
-      .catch(() => setCompetitions([]))
-  }, [])
-
-  const loadTeams = useCallback(() => {
     Promise.all([
-      fetch("/api/member-space/sport/teams").then((r) => r.json()).catch(() => []),
-      fetch("/api/sport/disciplines").then((r) => r.json()).catch(() => []),
-    ]).then(([t, d]) => {
-      setMyTeams(Array.isArray(t) ? t : [])
-      setDisciplines((Array.isArray(d) ? d : []).filter((x: any) => x.active))
-    })
-  }, [])
-
-  const loadCalendar = useCallback(() => {
-    Promise.all([
+      fetch(`/api/member-space/sport/delegations${qs}`).then((r) => r.json()).catch(() => []),
+      fetch("/api/sport/competitions").then((r) => r.json()).catch(() => []),
       fetch("/api/sport/matches").then((r) => r.json()).catch(() => []),
       fetch("/api/sport/teams").then((r) => r.json()).catch(() => []),
-    ]).then(([m, t]) => {
+      fetch(`/api/member-space/sport/participation${qs}`).then((r) => r.json()).catch(() => ({ mine: [], received: [] })),
+    ]).then(([dl, c, m, t, p]) => {
+      setDelegations(Array.isArray(dl) ? dl : [])
+      const comps = (Array.isArray(c) ? c : []).filter((x: any) => x.status !== "CLOSED")
+      setCompetitions(comps)
       setMatches(Array.isArray(m) ? m : [])
-      setRegisteredTeams((Array.isArray(t) ? t : []).filter((x: any) => x.status !== "REJECTED"))
+      setAllTeams(Array.isArray(t) ? t : [])
+      setParticipation(p && typeof p === "object" ? p : { mine: [], received: [] })
+      setPlayedMatches((Array.isArray(m) ? m : []).filter((x: any) => x.status === "PLAYED"))
+      // Classements des compétitions lancées
+      const launched = comps.filter((x: any) => x.status === "LAUNCHED")
+      const st: Record<string, any[]> = {}
+      const fetchAll = launched.flatMap((comp: any) =>
+        (comp.disciplines ?? []).map((cd: any) =>
+          fetch(`/api/sport/standings?competitionId=${comp.id}&disciplineId=${cd.disciplineId}`)
+            .then((r) => r.json())
+            .then((rows) => { if (Array.isArray(rows)) st[cd.disciplineId] = rows })
+            .catch(() => {})
+        )
+      )
+      Promise.all(fetchAll).finally(() => setStandings(st))
     })
-  }, [])
+  }, [qs])
 
   useEffect(() => { load() }, [load])
-  useEffect(() => { loadTeams() }, [loadTeams])
-  useEffect(() => { loadCalendar() }, [loadCalendar])
 
+  const activeDelegations = (delegations ?? []).filter((d: any) => d.status === "ACTIVE")
   const upcomingMatches = (matches ?? [])
     .filter((m: any) => {
       if (m.status !== "SCHEDULED") return false
@@ -726,48 +728,9 @@ export function SportTab({ profile }: { profile: MemberProfile }) {
     })
     .sort((a: any, b: any) => new Date(a.date).getTime() - new Date(b.date).getTime())
 
-  const publicTeams = (registeredTeams ?? []).filter(
-    (t: any) => t.status === "INSCRIPTION" || t.status === "CONFIRMED"
+  const publicTeams = (allTeams ?? []).filter(
+    (t: any) => t.status === "SUBMITTED" || t.status === "UNDER_REVIEW" || t.status === "VALIDATED"
   )
-
-  async function submitTeam(e: React.FormEvent) {
-    e.preventDefault()
-    if (!teamForm.disciplineId) { toast.error("Choisissez une discipline"); return }
-    setSubmitting(true)
-    try {
-      const res = await fetch("/api/member-space/sport/teams", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...teamForm, players: teamForm.players }),
-      })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data?.error || "Erreur")
-      toast.success("Équipe déposée — en attente de validation par le bureau")
-      setTeamForm({ disciplineId: "", name: "", captainName: "", players: "" })
-      loadTeams()
-      loadCalendar()
-    } catch (err) {
-      toast.error((err as Error).message)
-    } finally {
-      setSubmitting(false)
-    }
-  }
-
-  async function removeMyTeam(id: string) {
-    setRemovingId(id)
-    try {
-      const res = await fetch(`/api/member-space/sport/teams?id=${id}`, { method: "DELETE" })
-      const data = await res.json().catch(() => ({}))
-      if (!res.ok) throw new Error(data?.error || "Erreur")
-      toast.success("Inscription retirée")
-      loadTeams()
-      loadCalendar()
-    } catch (err) {
-      toast.error((err as Error).message)
-    } finally {
-      setRemovingId(null)
-    }
-  }
 
   return (
     <div className="p-3 space-y-3">
@@ -818,88 +781,35 @@ export function SportTab({ profile }: { profile: MemberProfile }) {
         </div>
       </div>
 
-      {/* Inscription d'équipe */}
+      {/* Mon rôle de responsable sportif de classe */}
       <div className="rounded-lg border bg-card p-3">
         <div className="flex items-center gap-2 mb-2">
           <UserPlus className="h-4 w-4 text-primary" />
-          <p className="text-xs font-semibold">Inscrire mon équipe</p>
+          <p className="text-xs font-semibold">Inscriptions — responsable sportif de classe</p>
         </div>
-        {myTeams === null ? (
+        {delegations === null ? (
           <p className="text-xs text-muted-foreground p-3 text-center">Chargement…</p>
-        ) : myTeams.length > 0 ? (
-          <div className="space-y-2">
-            {myTeams.map((t: any) => {
-              const st = MY_TEAM_STATUS[t.status] ?? MY_TEAM_STATUS.INSCRIPTION
-              return (
-                <div key={t.id} className="rounded-lg border bg-muted/30 p-3">
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="min-w-0">
-                      <p className="text-sm font-medium truncate">{t.name}</p>
-                      <p className="text-[10px] text-muted-foreground">{t.discipline?.name ?? "—"} · {classLabel(t.className, t.level)}</p>
-                    </div>
-                    <Badge variant="outline" className={`text-[9px] shrink-0 ${st.cls}`}>{st.label}</Badge>
-                  </div>
-                  {t.status === "INSCRIPTION" && (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="w-full mt-2 h-7 text-xs gap-1.5"
-                      onClick={() => removeMyTeam(t.id)}
-                      disabled={removingId === t.id}
-                    >
-                      {removingId === t.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Trash2 className="h-3 w-3" />}
-                      Retirer l'inscription
-                    </Button>
-                  )}
-                  {t.status === "REJECTED" && (
-                    <p className="text-[10px] text-muted-foreground mt-1.5">Cette inscription a été refusée par le bureau — contactez la Commission Sportive.</p>
-                  )}
-                </div>
-              )
-            })}
-          </div>
-        ) : !myClass ? (
+        ) : delegations.length === 0 ? (
           <p className="text-xs text-muted-foreground p-3 text-center rounded-lg border">
-            Votre dossier ne contient pas de filière — contactez le bureau pour inscrire votre équipe.
+            Vous n'êtes pas désigné responsable sportif de classe pour cette compétition. Les équipes sont gérées par
+            le responsable sportif de votre classe, sous l'autorité du responsable des sports de l'Amicale.
           </p>
         ) : (
-          <form onSubmit={submitTeam} className="space-y-2">
-            <div className="rounded-lg bg-muted/50 px-3 py-2 text-[11px] text-muted-foreground">
-              Classe : <span className="font-medium text-foreground">{myClass}</span>
-            </div>
-            <div className="space-y-1">
-              <Label className="text-[10px] font-medium">Discipline *</Label>
-              <Select value={teamForm.disciplineId} onValueChange={(v) => setTeamForm({ ...teamForm, disciplineId: v })}>
-                <SelectTrigger className="h-9 text-xs"><SelectValue placeholder="Choisir…" /></SelectTrigger>
-                <SelectContent>
-                  {disciplines.length === 0 ? (
-                    <p className="px-2 py-2 text-[10px] text-muted-foreground">Aucune discipline ouverte à l'inscription</p>
-                  ) : disciplines.map((d: any) => (
-                    <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-1">
-              <Label className="text-[10px] font-medium">Nom de l'équipe</Label>
-              <Input className="h-9 text-xs" value={teamForm.name} onChange={(e) => setTeamForm({ ...teamForm, name: e.target.value })} placeholder="Laissez vide pour « Classe — Discipline »" />
-            </div>
-            <div className="space-y-1">
-              <Label className="text-[10px] font-medium">Capitaine</Label>
-              <Input className="h-9 text-xs" value={teamForm.captainName} onChange={(e) => setTeamForm({ ...teamForm, captainName: e.target.value })} placeholder="Nom du capitaine" />
-            </div>
-            <div className="space-y-1">
-              <Label className="text-[10px] font-medium">Joueurs (un par ligne)</Label>
-              <Textarea rows={3} className="text-xs" value={teamForm.players} onChange={(e) => setTeamForm({ ...teamForm, players: e.target.value })} placeholder={"Nom du joueur 1\nNom du joueur 2\n…"} />
-              <p className="text-[9px] text-muted-foreground">Tout joueur doit être inscrit dans votre classe (art. 2).</p>
-            </div>
-            <Button type="submit" className="w-full h-8 text-xs gap-1.5" disabled={submitting}>
-              {submitting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <UserPlus className="h-3.5 w-3.5" />}
-              {submitting ? "Envoi…" : "Déposer l'équipe"}
-            </Button>
-          </form>
+          <div className="space-y-2">
+            {delegations.map((d: any) => (
+              <DelegateTeamCard key={d.id} d={d} onChanged={load} />
+            ))}
+          </div>
+        )}
+        {activeDelegations.length > 0 && (
+          <p className="mt-2 text-[9px] text-muted-foreground">
+            Les joueurs sont sélectionnés uniquement parmi les étudiants inscrits de votre classe (art. 2) — aucune saisie manuelle.
+          </p>
         )}
       </div>
+
+      {/* Ma participation sportive (étudiant) */}
+      <ParticipationSection competitions={competitions} participation={participation} onChanged={load} />
 
       {/* Dates de compétition */}
       <div className="rounded-lg border bg-card p-3 space-y-3">
@@ -946,7 +856,7 @@ export function SportTab({ profile }: { profile: MemberProfile }) {
         {/* Équipes inscrites */}
         <div>
           <p className="text-[10px] font-medium text-muted-foreground mb-1.5">Équipes inscrites</p>
-          {registeredTeams === null ? (
+          {allTeams === null ? (
             <p className="text-xs text-muted-foreground p-3 text-center rounded-lg border">Chargement…</p>
           ) : publicTeams.length === 0 ? (
             <p className="text-xs text-muted-foreground p-3 text-center rounded-lg border">Aucune équipe inscrite pour le moment</p>
@@ -969,40 +879,100 @@ export function SportTab({ profile }: { profile: MemberProfile }) {
           )}
         </div>
 
+        {/* Résultats */}
+        <div>
+          <p className="text-[10px] font-medium text-muted-foreground mb-1.5">Résultats des matchs joués</p>
+          {playedMatches.length === 0 ? (
+            <p className="text-xs text-muted-foreground p-3 text-center rounded-lg border">Aucun résultat publié pour le moment</p>
+          ) : (
+            <div className="space-y-1.5">
+              {playedMatches.map((m: any) => (
+                <div key={m.id} className="rounded-lg border bg-muted/30 px-3 py-2">
+                  <p className="text-[9px] font-semibold uppercase tracking-wide text-primary">{MATCH_PHASE_LABEL[m.phase] ?? m.phase}</p>
+                  <div className="flex items-center justify-between gap-2 text-sm font-medium mt-0.5">
+                    <span className="min-w-0 flex-1 truncate text-right">{m.teamA?.name ?? "—"}</span>
+                    <span className="shrink-0 rounded bg-primary/10 px-2 py-0.5 text-xs font-bold">
+                      {m.scoreA ?? 0} – {m.scoreB ?? 0}
+                    </span>
+                    <span className="min-w-0 flex-1 truncate">{m.teamB?.name ?? "—"}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Classements */}
+        <div>
+          <p className="text-[10px] font-medium text-muted-foreground mb-1.5">Classements</p>
+          {competitions.filter((a: any) => a.status === "LAUNCHED").length === 0 ? (
+            <p className="text-xs text-muted-foreground p-3 text-center rounded-lg border">Le classement sera publié après le lancement officiel des compétitions</p>
+          ) : (
+            <div className="space-y-2">
+              {competitions.filter((a: any) => a.status === "LAUNCHED").map((a: any) => (
+                <div key={a.id} className="space-y-2">
+                  {(a.disciplines ?? []).map((cd: any) => {
+                    const rows = standings[cd.disciplineId] ?? []
+                    return (
+                      <div key={cd.disciplineId} className="rounded-lg border bg-muted/30 p-2.5">
+                        <p className="text-[10px] font-semibold text-muted-foreground mb-1.5">{a.name} — {cd.discipline?.name}</p>
+                        {rows.length === 0 ? (
+                          <p className="text-[10px] text-muted-foreground">Aucune équipe classée</p>
+                        ) : (
+                          <div className="space-y-1">
+                            {rows.map((r: any, i: number) => (
+                              <div key={r.teamId} className="flex items-center gap-2 text-[11px]">
+                                <span className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-full text-[8px] font-bold ${i === 0 ? "bg-amber-100 text-amber-700" : i === 1 ? "bg-slate-200 text-slate-700" : i === 2 ? "bg-orange-100 text-orange-700" : "bg-muted text-muted-foreground"}`}>{i + 1}</span>
+                                <span className="min-w-0 flex-1 truncate font-medium">{r.teamName}</span>
+                                <span className="shrink-0 text-muted-foreground">J{r.played}</span>
+                                <span className="shrink-0 text-muted-foreground">G{r.won}</span>
+                                <span className="shrink-0 text-muted-foreground">N{r.drawn}</span>
+                                <span className="shrink-0 text-muted-foreground">P{r.lost}</span>
+                                <span className="shrink-0 text-muted-foreground">+{r.goalsFor}/−{r.goalsAgainst}</span>
+                                <span className="w-6 shrink-0 text-right font-bold">{r.points}</span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
         {/* Compétitions */}
         <div>
           <p className="text-[10px] font-medium text-muted-foreground mb-1.5">Compétitions</p>
-          {competitions === null ? (
-            <p className="text-xs text-muted-foreground p-3 text-center rounded-lg border">Chargement…</p>
-          ) : competitions.length === 0 ? (
-            <p className="text-xs text-muted-foreground p-3 text-center rounded-lg border">Aucune compétition programmée</p>
+          {competitions.length === 0 ? (
+            <p className="text-xs text-muted-foreground p-3 text-center rounded-lg border">Aucune compétition</p>
           ) : (
             <div className="space-y-2">
               {competitions.map((a: any) => {
-                const start = new Date(a.startDate)
-                const ongoing = a.status === "ONGOING"
+                const cStatus =
+                  a.status === "OPEN" ? { label: "Inscriptions ouvertes", cls: "bg-cyan-50 text-cyan-700" }
+                  : a.status === "LAUNCHED" ? { label: "Lancée", cls: "bg-emerald-50 text-emerald-700" }
+                  : a.status === "CLOSED" ? { label: "Clôturée", cls: "bg-neutral-100 text-neutral-700" }
+                  : { label: "En préparation", cls: "bg-slate-100 text-slate-700" }
                 return (
                   <div key={a.id} className="rounded-lg border bg-muted/30 p-3">
                     <div className="flex items-start justify-between gap-2">
                       <p className="text-sm font-medium">{a.name}</p>
-                      {ongoing && (
-                        <Badge variant="outline" className="text-[9px] shrink-0 bg-emerald-50 text-emerald-700">
-                          En cours
-                        </Badge>
-                      )}
+                      <Badge variant="outline" className={`text-[9px] shrink-0 ${cStatus.cls}`}>{cStatus.label}</Badge>
                     </div>
                     {a.description && (
                       <p className="text-[11px] text-muted-foreground mt-0.5 line-clamp-2">{a.description}</p>
                     )}
                     <div className="mt-1.5 space-y-0.5 text-[11px] text-muted-foreground">
                       <p className="flex items-center gap-1.5">
-                        <Clock className="h-3 w-3 shrink-0" /> {formatDate(a.startDate)}
-                        {a.endDate && a.endDate !== a.startDate && ` → ${formatDate(a.endDate)}`}
+                        <Clock className="h-3 w-3 shrink-0" />
+                        {a.startDate ? formatDate(a.startDate) : "Dates à définir"}
+                        {a.endDate && ` → ${formatDate(a.endDate)}`}
                       </p>
-                      {a.location && (
-                        <p className="flex items-center gap-1.5">
-                          <MapPin className="h-3 w-3 shrink-0" /> {a.location}
-                        </p>
+                      {a.fee > 0 && (
+                        <p className="text-[11px] text-amber-700">Engagement : {a.fee.toLocaleString("fr-FR")} FCFA</p>
                       )}
                     </div>
                   </div>
@@ -1012,6 +982,582 @@ export function SportTab({ profile }: { profile: MemberProfile }) {
           )}
         </div>
       </div>
+    </div>
+  )
+}
+
+const PARTICIPATION_STATUS: Record<string, { label: string; cls: string }> = {
+  PENDING: { label: "En attente", cls: "bg-amber-50 text-amber-700 border-amber-200" },
+  ACCEPTED: { label: "Acceptée", cls: "bg-emerald-50 text-emerald-700 border-emerald-200" },
+  REFUSED: { label: "Refusée", cls: "bg-rose-50 text-rose-700 border-rose-200" },
+}
+
+/**
+ * Participation sportive d'un étudiant : demande à son responsable de classe
+ * (poste obligatoire) + réponses aux sélections directes + demandes reçues si
+ * l'étudiant est lui-même responsable de classe.
+ */
+function ParticipationSection({ competitions, participation, onChanged }: {
+  competitions: any[]
+  participation: any | null
+  onChanged: () => void
+}) {
+  const openComps = competitions.filter((c: any) => c.status === "OPEN")
+  const [applyCompId, setApplyCompId] = useState("")
+  const [applyDiscId, setApplyDiscId] = useState("")
+  const [applyPosition, setApplyPosition] = useState("")
+  const [applyNote, setApplyNote] = useState("")
+  const [sending, setSending] = useState(false)
+
+  const applyComp = openComps.find((c: any) => c.id === applyCompId)
+  const applyDiscs = (applyComp?.disciplines ?? []).map((cd: any) => cd.discipline)
+  const applyDisc = applyDiscs.find((x: any) => x.id === applyDiscId)
+  const positionOptions = (applyDisc?.positions ?? []).map((p: any) => p.name)
+
+  async function sendApply() {
+    if (!applyCompId) { toast.error("Choisissez une compétition"); return }
+    if (!applyDiscId) { toast.error("Choisissez une discipline"); return }
+    if (!applyPosition.trim()) { toast.error("Indiquez le poste que vous souhaitez jouer (obligatoire)"); return }
+    setSending(true)
+    try {
+      const res = await fetch("/api/member-space/sport/participation", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ competitionId: applyCompId, disciplineId: applyDiscId, position: applyPosition.trim(), note: applyNote.trim() || null }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data?.error || "Erreur")
+      toast.success("Demande envoyée au responsable sportif de votre classe")
+      setApplyDiscId("")
+      setApplyPosition("")
+      setApplyNote("")
+      onChanged()
+    } catch (e) {
+      toast.error((e as Error).message)
+    } finally {
+      setSending(false)
+    }
+  }
+
+  async function respond(id: string, action: "ACCEPT" | "REFUSE") {
+    if (action === "REFUSE" && !confirm("Refuser cette demande ?")) return
+    const res = await fetch(`/api/member-space/sport/participation/${id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action }),
+    })
+    const data = await res.json().catch(() => ({}))
+    if (!res.ok) { toast.error(data?.error || "Erreur"); return }
+    toast.success(action === "ACCEPT" ? "Demande acceptée — joueur intégré" : "Demande refusée")
+    onChanged()
+  }
+
+  const mine = participation?.mine ?? []
+  const received = participation?.received ?? []
+  const receivedPending = received.filter((r: any) => r.status === "PENDING" && r.direction === "STUDENT")
+  const myPendingSelection = mine.filter((r: any) => r.status === "PENDING" && r.direction === "DELEGATE")
+
+  return (
+    <div className="rounded-lg border bg-card p-3 space-y-3">
+      <div className="flex items-center gap-2">
+        <Trophy className="h-4 w-4 text-primary" />
+        <p className="text-xs font-semibold">Ma participation sportive</p>
+      </div>
+
+      {participation === null ? (
+        <p className="text-xs text-muted-foreground p-3 text-center">Chargement…</p>
+      ) : (
+        <>
+          {/* Formulaire de demande d'un étudiant */}
+          {openComps.length > 0 && (
+            <div className="space-y-2 rounded-lg border bg-muted/30 p-2.5">
+              <p className="text-[10px] font-medium text-muted-foreground">
+                Envoyer une demande au responsable sportif de ma classe (poste obligatoire)
+              </p>
+              <div className="space-y-1.5">
+                <Select value={applyCompId} onValueChange={(v) => { setApplyCompId(v); setApplyDiscId(""); setApplyPosition("") }}>
+                  <SelectTrigger className="h-9 text-xs"><SelectValue placeholder="Compétition…" /></SelectTrigger>
+                  <SelectContent>
+                    {openComps.map((c: any) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+                <Select value={applyDiscId} disabled={!applyCompId} onValueChange={(v) => { setApplyDiscId(v); setApplyPosition("") }}>
+                  <SelectTrigger className="h-9 text-xs"><SelectValue placeholder="Discipline…" /></SelectTrigger>
+                  <SelectContent>
+                    {(applyComp?.disciplines ?? []).map((cd: any) => (
+                      <SelectItem key={cd.disciplineId} value={cd.disciplineId}>{cd.discipline?.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {positionOptions.length > 0 ? (
+                  <Select value={applyPosition} onValueChange={setApplyPosition}>
+                    <SelectTrigger className="h-9 text-xs"><SelectValue placeholder="Poste souhaité…" /></SelectTrigger>
+                    <SelectContent>
+                      {positionOptions.map((p: string) => <SelectItem key={p} value={p}>{p}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                ) : (
+                  <Input className="h-9 text-xs" placeholder="Poste souhaité (ex. Gardien) *" value={applyPosition} onChange={(e) => setApplyPosition(e.target.value)} />
+                )}
+                <Input className="h-9 text-xs" placeholder="Message (optionnel)" value={applyNote} onChange={(e) => setApplyNote(e.target.value)} />
+                <Button size="sm" className="h-8 w-full text-xs gap-1.5" onClick={sendApply} disabled={sending}>
+                  {sending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
+                  Envoyer ma demande
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {/* Sélections directes à accepter/refuser (étudiant) */}
+          {myPendingSelection.length > 0 && (
+            <div className="space-y-1.5">
+              <p className="text-[10px] font-medium text-muted-foreground">Sélections à confirmer</p>
+              {myPendingSelection.map((r: any) => (
+                <div key={r.id} className="rounded-lg border border-emerald-200 bg-emerald-50/60 p-2.5 text-[11px]">
+                  <p className="font-medium">Tu as été sélectionné(e) pour {r.discipline?.name} ({r.competition?.name})</p>
+                  <p className="text-muted-foreground mt-0.5">Poste : {r.position} — tant que tu n'acceptes pas, tu n'es pas joueur confirmé.</p>
+                  <div className="flex gap-1.5 mt-2">
+                    <Button size="sm" className="h-7 flex-1 text-[10px] gap-1" onClick={() => respond(r.id, "ACCEPT")}>
+                      <CheckCircle2 className="h-3 w-3" /> Accepter
+                    </Button>
+                    <Button size="sm" variant="outline" className="h-7 flex-1 text-[10px] gap-1 text-destructive" onClick={() => respond(r.id, "REFUSE")}>
+                      <XCircle className="h-3 w-3" /> Refuser
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Demandes reçues (responsable de classe) */}
+          {receivedPending.length > 0 && (
+            <div className="space-y-1.5">
+              <p className="text-[10px] font-medium text-muted-foreground">Demandes de participation reçues ({receivedPending.length})</p>
+              {receivedPending.map((r: any) => (
+                <div key={r.id} className="rounded-lg border bg-muted/30 p-2.5 text-[11px]">
+                  <p className="font-medium">{r.member?.firstName} {r.member?.lastName} <span className="font-mono text-[9px] text-muted-foreground">{r.member?.matricule}</span></p>
+                  <p className="text-muted-foreground mt-0.5">{r.discipline?.name} · Poste : {r.position}</p>
+                  {r.note && <p className="text-muted-foreground mt-0.5 line-clamp-2">« {r.note} »</p>}
+                  <div className="flex gap-1.5 mt-2">
+                    <Button size="sm" className="h-7 flex-1 text-[10px] gap-1" onClick={() => respond(r.id, "ACCEPT")}>
+                      <CheckCircle2 className="h-3 w-3" /> Accepter
+                    </Button>
+                    <Button size="sm" variant="outline" className="h-7 flex-1 text-[10px] gap-1 text-destructive" onClick={() => respond(r.id, "REFUSE")}>
+                      <XCircle className="h-3 w-3" /> Refuser
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Mes demandes */}
+          <div>
+            <p className="text-[10px] font-medium text-muted-foreground mb-1.5">Mes demandes</p>
+            {mine.length === 0 ? (
+              <p className="text-[10px] text-muted-foreground p-3 text-center rounded-lg border">Aucune demande pour le moment</p>
+            ) : (
+              <div className="space-y-1.5">
+                {mine.map((r: any) => (
+                  <div key={r.id} className="flex items-center justify-between gap-2 rounded-lg border bg-muted/30 px-3 py-2 text-[11px]">
+                    <div className="min-w-0">
+                      <p className="font-medium truncate">{r.discipline?.name} · {r.position}</p>
+                      <p className="text-[9px] text-muted-foreground">{r.competition?.name} · {r.direction === "DELEGATE" ? "sélection du responsable" : "ma demande"}</p>
+                      {r.status === "REFUSED" && r.response && <p className="text-[9px] text-rose-600 mt-0.5">{r.response}</p>}
+                    </div>
+                    <Badge variant="outline" className={`shrink-0 text-[9px] ${PARTICIPATION_STATUS[r.status]?.cls ?? ""}`}>
+                      {PARTICIPATION_STATUS[r.status]?.label ?? r.status}
+                    </Badge>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </>
+      )}
+    </div>
+  )
+}
+
+/**
+ * Carte de gestion d'une délégation (responsable sportif de classe) :
+ * compose son équipe uniquement parmi les étudiants inscrits de sa classe,
+ * la soumet au responsable des sports, la corrige après un refus.
+ */
+function DelegateTeamCard({ d, onChanged }: { d: any; onChanged: () => void }) {
+  const competition = d.competition
+  const disciplines = (competition?.disciplines ?? []).map((x: any) => x.discipline)
+  const team = d.team
+  const students = d.students ?? []
+  const canManage = d.status === "ACTIVE" && competition?.status === "OPEN"
+
+  const [discId, setDiscId] = useState("")
+  const [teamName, setTeamName] = useState("")
+  const [captainId, setCaptainId] = useState("")
+  const [playerIds, setPlayerIds] = useState<string[]>([])
+  const [posMap, setPosMap] = useState<Record<string, string>>({})
+  const [search, setSearch] = useState("")
+  const [editing, setEditing] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [submitting, setSubmitting] = useState(false)
+  const [removing, setRemoving] = useState(false)
+  // Sélection directe d'un étudiant
+  const [directTarget, setDirectTarget] = useState<any | null>(null)
+  const [directPosition, setDirectPosition] = useState("")
+  const [directSending, setDirectSending] = useState(false)
+
+  const discipline = disciplines.find((x: any) => x.id === discId)
+  const maxPlayers = discipline?.maxTeamSize ?? discipline?.teamSize ?? 99
+  const minPlayers = discipline?.minTeamSize ?? discipline?.teamSize ?? 0
+  const positionOptions = ((d.positionsByDiscipline ?? {})[discId] ?? []) as string[]
+
+  useEffect(() => {
+    if (team) {
+      setDiscId(team.disciplineId)
+      setTeamName(team.name)
+      setCaptainId(team.captainId ?? "")
+      try {
+        setPlayerIds((team.players ? JSON.parse(team.players) : []) as string[])
+      } catch {
+        setPlayerIds([])
+      }
+      const pm: Record<string, string> = {}
+      for (const p of team.playersDetails ?? []) if (p.position) pm[p.id] = p.position
+      setPosMap(pm)
+      setEditing(false)
+    }
+  }, [team])
+
+  const filtered = students.filter((s: any) =>
+    !search || s.matricule.includes(search) || `${s.firstName} ${s.lastName}`.toLowerCase().includes(search.toLowerCase())
+  )
+
+  function togglePlayer(id: string) {
+    if (playerIds.includes(id)) {
+      setPlayerIds(playerIds.filter((x) => x !== id))
+      setPosMap((prev) => { const n = { ...prev }; delete n[id]; return n })
+    } else if (playerIds.length < maxPlayers) setPlayerIds([...playerIds, id])
+    else toast.error(`Maximum ${maxPlayers} joueur(s) pour cette discipline`)
+  }
+
+  function missingPositions(): string[] {
+    return playerIds.filter((id) => !(posMap[id] ?? "").trim())
+  }
+
+  async function saveDraft() {
+    if (!discId) { toast.error("Choisissez une discipline"); return }
+    setSaving(true)
+    try {
+      const payload = {
+        competitionId: d.competitionId,
+        disciplineId: discId,
+        name: teamName,
+        captainId: captainId || null,
+        playerIds,
+        positions: playerIds.length ? posMap : undefined,
+      }
+      const res = await fetch(team ? `/api/member-space/sport/teams/${team.id}` : "/api/member-space/sport/teams", {
+        method: team ? "PUT" : "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data?.error || "Erreur")
+      toast.success(team ? "Brouillon enregistré" : "Brouillon créé")
+      onChanged()
+    } catch (e) {
+      toast.error((e as Error).message)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  async function submitTeam() {
+    if (!team) return
+    // Vérifications précises avant l'envoi (le serveur contrôle aussi)
+    if (playerIds.length < minPlayers) {
+      toast.error(`Impossible d'envoyer l'équipe — il manque ${minPlayers - playerIds.length} joueur(s) (minimum requis : ${minPlayers})`)
+      return
+    }
+    if (playerIds.length > maxPlayers) {
+      toast.error(`Impossible d'envoyer l'équipe — le nombre maximum de joueurs est dépassé (max ${maxPlayers})`)
+      return
+    }
+    const missing = missingPositions()
+    if (missing.length) {
+      const m = students.find((s: any) => s.id === missing[0])
+      toast.error(`Impossible d'envoyer l'équipe — le poste de ${m ? `${m.firstName} ${m.lastName}` : "un joueur"} n'est pas renseigné`)
+      return
+    }
+    setSubmitting(true)
+    try {
+      const res = await fetch(`/api/member-space/sport/teams/${team.id}/submit`, { method: "POST" })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(data?.error || "Erreur")
+      toast.success("Équipe soumise — en attente de validation du responsable des sports")
+      onChanged()
+    } catch (e) {
+      toast.error((e as Error).message)
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  async function removeTeam() {
+    if (!team) return
+    if (!confirm("Retirer l'inscription ?")) return
+    setRemoving(true)
+    try {
+      const res = await fetch(`/api/member-space/sport/teams?id=${team.id}`, { method: "DELETE" })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(data?.error || "Erreur")
+      toast.success("Inscription retirée")
+      onChanged()
+    } catch (e) {
+      toast.error((e as Error).message)
+    } finally {
+      setRemoving(false)
+    }
+  }
+
+  async function sendDirectSelection() {
+    if (!directTarget || !discId) return
+    if (!directPosition.trim()) { toast.error("Indiquez le poste du joueur sélectionné"); return }
+    setDirectSending(true)
+    try {
+      const res = await fetch("/api/member-space/sport/participation", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          competitionId: d.competitionId,
+          disciplineId: discId,
+          memberId: directTarget.id,
+          position: directPosition.trim(),
+          direction: "DELEGATE",
+        }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data?.error || "Erreur")
+      toast.success(`Sélection envoyée à ${directTarget.firstName} ${directTarget.lastName} — il doit l'accepter pour être confirmé`)
+      setDirectTarget(null)
+      setDirectPosition("")
+    } catch (e) {
+      toast.error((e as Error).message)
+    } finally {
+      setDirectSending(false)
+    }
+  }
+
+  const st = team ? MY_TEAM_STATUS[team.status] : null
+  const needsCorrection = team && (team.status === "RETURNED" || team.status === "REJECTED")
+
+  return (
+    <div className="rounded-lg border bg-muted/30 p-3">
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0">
+          <p className="text-sm font-medium">{classLabel(d.className, d.level)}</p>
+          <p className="text-[10px] text-muted-foreground">{competition?.name ?? "—"}</p>
+        </div>
+        {d.status === "ACTIVE" ? (
+          <Badge variant="outline" className="text-[9px] shrink-0 bg-emerald-50 text-emerald-700 border-emerald-200">Responsable actif</Badge>
+        ) : d.status === "PENDING" ? (
+          <Badge variant="outline" className="text-[9px] shrink-0 bg-amber-50 text-amber-700 border-amber-200">À valider</Badge>
+        ) : (
+          <Badge variant="outline" className="text-[9px] shrink-0 bg-rose-50 text-rose-700 border-rose-200">Révoqué</Badge>
+        )}
+      </div>
+
+      {!canManage ? (
+        <p className="text-[10px] text-muted-foreground mt-2">
+          {d.status !== "ACTIVE"
+            ? "Votre désignation doit être validée par le responsable des sports de l'Amicale avant de gérer l'équipe."
+            : "Les inscriptions ne sont pas ouvertes pour cette compétition."}
+        </p>
+      ) : team && !editing ? (
+        <div className="mt-2 rounded-lg bg-card border p-2.5 space-y-1.5">
+          <div className="flex items-start justify-between gap-2">
+            <div className="min-w-0">
+              <p className="text-sm font-medium truncate">{team.name}</p>
+              <p className="text-[10px] text-muted-foreground">{team.discipline?.name ?? "—"} · {classLabel(team.className, team.level)}</p>
+            </div>
+            {st && <Badge variant="outline" className={`text-[9px] shrink-0 ${st.cls}`}>{st.label}</Badge>}
+          </div>
+          <p className="text-[10px] text-muted-foreground">
+            {team.playersDetails?.length ?? 0}/{maxPlayers} joueur(s) · Capitaine : {team.captainName ?? "—"}
+          </p>
+          {team.playersDetails && team.playersDetails.length > 0 && (
+            <div className="flex flex-wrap gap-1">
+              {team.playersDetails.map((p: any) => (
+                <span key={p.id} className="rounded border bg-muted/50 px-1.5 py-0.5 text-[9px]">
+                  {p.firstName} {p.lastName}{p.position ? ` · ${p.position}` : " · poste ?"}
+                </span>
+              ))}
+            </div>
+          )}
+          {needsCorrection && team.refusalReason && (
+            <div className={`rounded border p-2 text-[10px] ${team.status === "RETURNED" ? "bg-orange-50 border-orange-200 text-orange-700" : "bg-rose-50 border-rose-200 text-rose-700"}`}>
+              <p className="font-medium">{team.status === "RETURNED" ? "Retournée pour correction — motif :" : "Refusée — motif :"} {team.refusalReason}</p>
+              <p className="mt-0.5">Corrigez l'équipe puis soumettez à nouveau.</p>
+            </div>
+          )}
+          <div className="flex gap-1.5">
+            {(team.status === "DRAFT" || needsCorrection) && (
+              <Button size="sm" variant="outline" className="h-7 flex-1 text-xs gap-1" onClick={() => setEditing(true)}>
+                <Pencil className="h-3 w-3" /> {needsCorrection ? "Corriger" : "Modifier"}
+              </Button>
+            )}
+            {team.status === "DRAFT" && (
+              <Button size="sm" className="h-7 flex-1 text-xs gap-1" onClick={submitTeam} disabled={submitting}>
+                {submitting ? <Loader2 className="h-3 w-3 animate-spin" /> : <Send className="h-3 w-3" />} Soumettre
+              </Button>
+            )}
+            {team.status !== "VALIDATED" && (
+              <Button size="sm" variant="outline" className="h-7 text-xs gap-1 text-destructive" onClick={removeTeam} disabled={removing}>
+                {removing ? <Loader2 className="h-3 w-3 animate-spin" /> : <Trash2 className="h-3 w-3" />}
+              </Button>
+            )}
+          </div>
+        </div>
+      ) : (
+        <div className="mt-2 space-y-2">
+          <div className="rounded-lg bg-card border p-2.5 text-[11px] text-muted-foreground">
+            Classe : <span className="font-medium text-foreground">{classLabel(d.className, d.level)}</span> — joueurs
+            sélectionnés uniquement parmi les étudiants inscrits de votre classe (art. 2).
+          </div>
+          <div className="space-y-1">
+            <Label className="text-[10px] font-medium">Discipline *</Label>
+            <Select value={discId} onValueChange={(v) => { setDiscId(v); setCaptainId(""); setPosMap({}) }}>
+              <SelectTrigger className="h-9 text-xs"><SelectValue placeholder="Choisir…" /></SelectTrigger>
+              <SelectContent>
+                {disciplines.length === 0 ? (
+                  <p className="px-2 py-2 text-[10px] text-muted-foreground">Aucune discipline dans cette compétition</p>
+                ) : disciplines.map((x: any) => (
+                  <SelectItem key={x.id} value={x.id}>{x.name} ({x.minTeamSize != null || x.maxTeamSize != null ? `${x.minTeamSize ?? x.teamSize}–${x.maxTeamSize ?? x.teamSize}` : x.teamSize})</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-1">
+            <Label className="text-[10px] font-medium">Nom de l'équipe</Label>
+            <Input className="h-9 text-xs" value={teamName} onChange={(e) => setTeamName(e.target.value)} placeholder="Laissez vide pour « Classe — Discipline »" />
+          </div>
+          {discipline && (
+            <div className="rounded-lg border bg-muted/40 p-2 text-[10px] text-muted-foreground space-y-0.5">
+              <p>Règles de composition ({discipline.name}) :</p>
+              <p>• Minimum : <span className="font-medium text-foreground">{minPlayers}</span> joueur(s)</p>
+              <p>• Maximum : <span className="font-medium text-foreground">{maxPlayers}</span> joueur(s)</p>
+              <p>• Actuellement sélectionnés : <span className={`font-medium ${playerIds.length < minPlayers ? "text-amber-600" : "text-emerald-600"}`}>{playerIds.length}</span></p>
+              {positionOptions.length > 0 && <p>• Postes : {positionOptions.join(", ")}</p>}
+            </div>
+          )}
+          <div className="space-y-1">
+            <Label className="text-[10px] font-medium">Joueurs — {playerIds.length}/{maxPlayers}</Label>
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+              <Input className="h-9 pl-8 text-xs" placeholder="Rechercher un étudiant…" value={search} onChange={(e) => setSearch(e.target.value)} />
+            </div>
+            <div className="rounded-lg border max-h-44 overflow-y-auto scroll-thin">
+              {filtered.length === 0 ? (
+                <p className="p-3 text-[10px] text-muted-foreground text-center">Aucun étudiant actif dans cette classe</p>
+              ) : filtered.slice(0, 40).map((s: any) => (
+                <div key={s.id} className="flex items-center gap-2 px-3 py-2 border-b last:border-0 hover:bg-accent text-xs">
+                  <label className="flex min-w-0 flex-1 items-center gap-2 cursor-pointer">
+                    <input type="checkbox" checked={playerIds.includes(s.id)} onChange={() => togglePlayer(s.id)} className="h-3.5 w-3.5 rounded border-input" />
+                    <span className="flex-1 truncate">{s.firstName} {s.lastName}</span>
+                    <span className="text-[9px] text-muted-foreground font-mono">{s.matricule}</span>
+                  </label>
+                  {!playerIds.includes(s.id) && (
+                    <button
+                      type="button"
+                      onClick={() => { setDirectTarget(s); setDirectPosition("") }}
+                      className="shrink-0 rounded border border-primary/30 px-1.5 py-0.5 text-[9px] font-medium text-primary hover:bg-primary/10"
+                      title="Sélectionner directement cet étudiant (il devra accepter)"
+                    >
+                      Sélectionner
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+          {playerIds.length > 0 && (
+            <div className="space-y-1">
+              <Label className="text-[10px] font-medium">Postes des joueurs *</Label>
+              <div className="rounded-lg border divide-y divide-border">
+                {playerIds.map((pid) => {
+                  const s = students.find((x: any) => x.id === pid)
+                  const label = s ? `${s.firstName} ${s.lastName}` : pid
+                  const missing = !(posMap[pid] ?? "").trim()
+                  return (
+                    <div key={pid} className="flex items-center gap-2 px-2.5 py-1.5">
+                      <span className={`min-w-0 flex-1 truncate text-[11px] ${missing ? "text-amber-600 font-medium" : ""}`}>{label}</span>
+                      {positionOptions.length > 0 ? (
+                        <Select value={posMap[pid] ?? ""} onValueChange={(v) => setPosMap({ ...posMap, [pid]: v })}>
+                          <SelectTrigger className={`h-8 w-36 text-[10px] ${missing ? "border-amber-300" : ""}`}><SelectValue placeholder="Poste…" /></SelectTrigger>
+                          <SelectContent>
+                            {positionOptions.map((p) => <SelectItem key={p} value={p}>{p}</SelectItem>)}
+                          </SelectContent>
+                        </Select>
+                      ) : (
+                        <Input className={`h-8 w-36 text-[10px] ${missing ? "border-amber-300" : ""}`} placeholder="Poste…" value={posMap[pid] ?? ""} onChange={(e) => setPosMap({ ...posMap, [pid]: e.target.value })} />
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          )}
+          <div className="space-y-1">
+            <Label className="text-[10px] font-medium">Capitaine (parmi les joueurs)</Label>
+            <Select value={captainId} onValueChange={setCaptainId}>
+              <SelectTrigger className="h-9 text-xs"><SelectValue placeholder="Aucun" /></SelectTrigger>
+              <SelectContent>
+                {playerIds.map((id) => {
+                  const s = students.find((x: any) => x.id === id)
+                  return s ? <SelectItem key={id} value={id}>{s.firstName} {s.lastName}</SelectItem> : null
+                })}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="flex gap-1.5">
+            <Button className="flex-1 h-8 text-xs gap-1.5" onClick={saveDraft} disabled={saving}>
+              {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
+              {team ? "Enregistrer le brouillon" : "Créer le brouillon d'équipe"}
+            </Button>
+            {team && (
+              <Button className="h-8 text-xs" variant="outline" onClick={() => setEditing(false)}>Annuler</Button>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Sélection directe — choix du poste */}
+      <Dialog open={!!directTarget} onOpenChange={(o) => !o && setDirectTarget(null)}>
+        <DialogContent className="sm:max-w-xs">
+          <DialogHeader>
+            <DialogTitle>Sélectionner {directTarget ? `${directTarget.firstName} ${directTarget.lastName}` : ""}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-2 py-2">
+            <p className="text-[11px] text-muted-foreground">Une notification sera envoyée à l'étudiant — il doit accepter pour être considéré comme joueur confirmé.</p>
+            {positionOptions.length > 0 ? (
+              <Select value={directPosition} onValueChange={setDirectPosition}>
+                <SelectTrigger className="h-9 text-xs"><SelectValue placeholder="Poste…" /></SelectTrigger>
+                <SelectContent>
+                  {positionOptions.map((p) => <SelectItem key={p} value={p}>{p}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            ) : (
+              <Input className="h-9 text-xs" placeholder="Poste (ex. Gardien)" value={directPosition} onChange={(e) => setDirectPosition(e.target.value)} />
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDirectTarget(null)}>Annuler</Button>
+            <Button onClick={sendDirectSelection} disabled={directSending}>
+              {directSending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />} Envoyer la sélection
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
@@ -1190,8 +1736,205 @@ export function DiscussionTab({ profile }: { profile: MemberProfile }) {
   )
 }
 
-// silence unused import warning for SectionCard / EmptyState / Bell / formatDateTime
-void SectionCard
-void EmptyState
-void Bell
-void formatDateTime
+// ============================================================
+// ACTUALITÉS — centre de diffusion de l'Amicale
+// ============================================================
+
+export function NewsTab({ announcements, memberId }: { announcements: Announcement[]; memberId?: string }) {
+  const [open, setOpen] = useState<Announcement | null>(null)
+
+  return (
+    <div className="p-3 space-y-3">
+      <div className="rounded-xl bg-gradient-to-br from-primary to-primary/80 text-primary-foreground p-4">
+        <div className="flex items-center gap-2">
+          <Bell className="h-5 w-5" />
+          <p className="text-sm font-semibold">Actualités de l'Amicale</p>
+        </div>
+        <p className="text-[10px] opacity-80 mt-1">Annonces, informations sportives, cotisations et activités — diffusées depuis le système de contrôle</p>
+      </div>
+
+      {announcements.length === 0 ? (
+        <div className="text-center py-10">
+          <Bell className="mx-auto h-8 w-8 text-muted-foreground/40" />
+          <p className="mt-2 text-xs text-muted-foreground">Aucune actualité publiée pour le moment</p>
+        </div>
+      ) : (
+        announcements.map((a) => {
+          const cat = ANNOUNCEMENT_CATEGORIES[a.category ?? "GENERAL"] ?? ANNOUNCEMENT_CATEGORIES.GENERAL
+          let gallery: string[] = []
+          try { gallery = a.gallery ? JSON.parse(a.gallery) : [] } catch { gallery = [] }
+          const hasMedia = !!(a.imageUrl || a.videoUrl || a.fileUrl || a.linkUrl || gallery.length)
+          return (
+            <button
+              key={a.id}
+              onClick={() => setOpen(a)}
+              className={`w-full rounded-lg border bg-card text-left overflow-hidden ${a.pinned ? "border-primary/40 bg-primary/5" : ""}`}
+            >
+              {a.imageUrl && (
+                <img src={a.imageUrl} alt="" className="h-32 w-full object-cover" />
+              )}
+              <div className="p-3">
+                <div className="flex items-center gap-1.5">
+                  {a.pinned && <Pin className="h-3 w-3 text-primary shrink-0" />}
+                  <span className={`rounded px-1.5 py-0.5 text-[8px] font-semibold ${cat.cls}`}>{cat.icon} {cat.label}</span>
+                  <span className="text-[9px] text-muted-foreground ml-auto shrink-0">{formatDate(a.publishedAt)}</span>
+                </div>
+                <p className="text-sm font-medium mt-1.5">{a.title}</p>
+                <p className="text-[11px] text-muted-foreground mt-0.5 line-clamp-2">{a.body}</p>
+                {hasMedia && (
+                  <p className="mt-1.5 text-[9px] font-medium text-primary">
+                    {gallery.length > 1 ? `🖼 ${gallery.length} images · ` : a.imageUrl ? "🖼 Image · " : ""}
+                    {a.videoUrl ? "🎬 Vidéo · " : ""}
+                    {a.fileUrl ? "📄 Fichier · " : ""}
+                    {a.linkUrl ? "🔗 Lien" : ""}
+                    Ouvrir
+                  </p>
+                )}
+              </div>
+            </button>
+          )
+        })
+      )}
+
+      {/* Détail de l'actualité */}
+      <Dialog open={!!open} onOpenChange={(o) => !o && setOpen(null)}>
+        <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto scroll-thin">
+          {open && (
+            <>
+              <DialogHeader>
+                <DialogTitle>{open.title}</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-3 py-2">
+                <div className="flex items-center gap-1.5">
+                  <span className={`rounded px-1.5 py-0.5 text-[8px] font-semibold ${(ANNOUNCEMENT_CATEGORIES[open.category ?? "GENERAL"] ?? ANNOUNCEMENT_CATEGORIES.GENERAL).cls}`}>
+                    {(ANNOUNCEMENT_CATEGORIES[open.category ?? "GENERAL"] ?? ANNOUNCEMENT_CATEGORIES.GENERAL).label}
+                  </span>
+                  <span className="text-[9px] text-muted-foreground">{formatDate(open.publishedAt)}</span>
+                </div>
+                {open.imageUrl && <img src={open.imageUrl} alt="" className="w-full rounded-lg border object-cover" />}
+                {(() => {
+                  let gallery: string[] = []
+                  try { gallery = open.gallery ? JSON.parse(open.gallery) : [] } catch { gallery = [] }
+                  return gallery.length > 0 ? (
+                    <div className="grid grid-cols-2 gap-1.5">
+                      {gallery.map((u, i) => <img key={i} src={u} alt="" className="h-24 w-full rounded-lg border object-cover" />)}
+                    </div>
+                  ) : null
+                })()}
+                <p className="text-xs whitespace-pre-wrap leading-relaxed">{open.body}</p>
+                {open.videoUrl && <video src={open.videoUrl} controls className="w-full rounded-lg border" />}
+                {open.fileUrl && (
+                  <Button size="sm" variant="outline" className="w-full h-8 text-xs gap-1.5" asChild>
+                    <a href={open.fileUrl} target="_blank" rel="noopener noreferrer">
+                      <FileText className="h-3.5 w-3.5" /> {open.fileName || "Ouvrir le document"}
+                    </a>
+                  </Button>
+                )}
+                {open.linkUrl && (
+                  <Button size="sm" variant="outline" className="w-full h-8 text-xs gap-1.5" asChild>
+                    <a href={open.linkUrl} target="_blank" rel="noopener noreferrer">
+                      <ExternalLink className="h-3.5 w-3.5" /> Ouvrir le lien
+                    </a>
+                  </Button>
+                )}
+              </div>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setOpen(null)}>Fermer</Button>
+              </DialogFooter>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
+    </div>
+  )
+}
+
+// ============================================================
+// NOTIFICATIONS — cloche de l'application étudiante
+// ============================================================
+
+interface MemberNotification {
+  id: string
+  title: string
+  message: string
+  type: string
+  isRead: boolean
+  sentAt: string
+}
+
+export function NotificationBell({ memberId }: { memberId?: string }) {
+  const [items, setItems] = useState<MemberNotification[] | null>(null)
+  const [open, setOpen] = useState(false)
+  const qs = memberId ? `?memberId=${encodeURIComponent(memberId)}` : ""
+
+  const load = useCallback(() => {
+    fetch(`/api/member-space/notifications${qs}`)
+      .then((r) => r.json())
+      .then((d) => setItems(Array.isArray(d) ? d : []))
+      .catch(() => setItems([]))
+  }, [qs])
+
+  useEffect(() => {
+    if (open) load()
+  }, [open, load])
+
+  async function markAllRead() {
+    await fetch(`/api/member-space/notifications${qs}`, { method: "POST" })
+    load()
+  }
+
+  const unread = (items ?? []).filter((n) => !n.isRead).length
+
+  return (
+    <>
+      <button
+        onClick={() => setOpen(true)}
+        className="relative rounded-lg p-1.5 hover:bg-primary-foreground/10"
+        title="Notifications"
+      >
+        <Bell className="h-4 w-4" />
+        {unread > 0 && (
+          <span className="absolute -top-0.5 -right-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-destructive text-[8px] font-bold text-white">
+            {unread > 9 ? "9+" : unread}
+          </span>
+        )}
+      </button>
+
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent className="sm:max-w-md max-h-[85vh] overflow-y-auto scroll-thin">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Bell className="h-4 w-4" /> Notifications
+              {unread > 0 && <span className="rounded-full bg-primary px-2 py-0.5 text-[9px] text-primary-foreground">{unread} non lue(s)</span>}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="py-2 space-y-2">
+            {items === null ? (
+              <p className="text-xs text-muted-foreground text-center py-6">Chargement…</p>
+            ) : items.length === 0 ? (
+              <p className="text-xs text-muted-foreground text-center py-6">Aucune notification</p>
+            ) : (
+              items.map((n) => (
+                <div key={n.id} className={`rounded-lg border p-3 ${n.isRead ? "bg-card" : "bg-primary/5 border-primary/20"}`}>
+                  <div className="flex items-start justify-between gap-2">
+                    <p className="text-xs font-medium">{n.title}</p>
+                    {!n.isRead && <span className="mt-0.5 h-1.5 w-1.5 shrink-0 rounded-full bg-primary" />}
+                  </div>
+                  <p className="text-[11px] text-muted-foreground mt-1">{n.message}</p>
+                  <p className="text-[9px] text-muted-foreground mt-1">{formatDate(n.sentAt)}</p>
+                </div>
+              ))
+            )}
+          </div>
+          {items && items.length > 0 && unread > 0 && (
+            <DialogFooter>
+              <Button size="sm" className="w-full gap-1.5" onClick={markAllRead}>
+                <CheckCircle2 className="h-4 w-4" /> Tout marquer comme lu
+              </Button>
+            </DialogFooter>
+          )}
+        </DialogContent>
+      </Dialog>
+    </>
+  )
+}

@@ -178,8 +178,20 @@ export type Role =
   | "CAISSIER"
   | "COMMISSAIRE"
   | "ADMIN_IT"
+  | "RESPONSABLE_SPORT"
   | "MEMBER"
   | "CUSTOM"
+
+export const SPORT_RESPONSABLE_ROLE = "RESPONSABLE_SPORT"
+
+/** Vrai si le rôle correspond au responsable des sports de l'Amicale. */
+export function isSportResponsable(role: string | undefined | null): boolean {
+  return role === SPORT_RESPONSABLE_ROLE
+}
+
+export function classLabel(className: string, level: string): string {
+  return `${className}${level ? ` · ${level}` : ""}`
+}
 
 export const ROLE_LABELS: Record<string, string> = {
   PRESIDENT: "Président",
@@ -188,6 +200,7 @@ export const ROLE_LABELS: Record<string, string> = {
   CAISSIER: "Caissier",
   COMMISSAIRE: "Commissaire aux comptes",
   ADMIN_IT: "Administrateur informatique",
+  RESPONSABLE_SPORT: "Responsable des sports de l'Amicale",
   MEMBER: "Membre",
   CUSTOM: "Rôle personnalisé",
 }
@@ -199,6 +212,7 @@ export const ROLE_COLORS: Record<string, string> = {
   CAISSIER: "bg-cyan-100 text-cyan-800 dark:bg-cyan-950 dark:text-cyan-200",
   COMMISSAIRE: "bg-violet-100 text-violet-800 dark:bg-violet-950 dark:text-violet-200",
   ADMIN_IT: "bg-slate-200 text-slate-800 dark:bg-slate-800 dark:text-slate-200",
+  RESPONSABLE_SPORT: "bg-orange-100 text-orange-800 dark:bg-orange-950 dark:text-orange-200",
   MEMBER: "bg-neutral-100 text-neutral-800 dark:bg-neutral-800 dark:text-neutral-200",
   CUSTOM: "bg-fuchsia-100 text-fuchsia-800 dark:bg-fuchsia-950 dark:text-fuchsia-200",
 }
@@ -293,6 +307,7 @@ export const MODULE_GROUPS: { group: string; modules: { id: string; label: strin
       { id: "meetings", label: "Réunions", icon: "UsersRound" },
       { id: "presences", label: "Présences", icon: "ClipboardCheck" },
       { id: "sport", label: "Sport", icon: "Trophy" },
+      { id: "publications", label: "Publications & actualités", icon: "Megaphone" },
       { id: "elections", label: "Élections", icon: "Vote" },
       { id: "votes", label: "Votes internes", icon: "CheckSquare" },
     ],

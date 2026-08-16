@@ -59,6 +59,7 @@ const PERMISSION_MATRIX: { role: string; perms: Record<string, boolean> }[] = [
   { role: "CAISSIER", perms: { Consulter: true, Ajouter: true, Modifier: false, Supprimer: false, Valider: false, Exporter: false, Imprimer: true } },
   { role: "COMMISSAIRE", perms: { Consulter: true, Ajouter: false, Modifier: false, Supprimer: false, Valider: false, Exporter: true, Imprimer: true } },
   { role: "ADMIN_IT", perms: { Consulter: true, Ajouter: true, Modifier: true, Supprimer: true, Valider: true, Exporter: true, Imprimer: true } },
+  { role: "RESPONSABLE_SPORT", perms: { Consulter: true, Ajouter: true, Modifier: true, Supprimer: true, Valider: true, Exporter: false, Imprimer: true } },
   { role: "MEMBER", perms: { Consulter: true, Ajouter: false, Modifier: false, Supprimer: false, Valider: false, Exporter: false, Imprimer: false } },
   { role: "CUSTOM", perms: { Consulter: true, Ajouter: false, Modifier: false, Supprimer: false, Valider: false, Exporter: false, Imprimer: false } },
 ]

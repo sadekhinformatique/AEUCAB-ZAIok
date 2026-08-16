@@ -5,7 +5,7 @@ import {
   Wallet, ReceiptText, BookOpen, Landmark, TrendingDown, CalendarDays, UsersRound,
   ClipboardCheck, Vote, CheckSquare, FolderArchive, Boxes, GraduationCap, Library,
   Handshake, Archive, Bell, ArrowUpDown, ShieldCheck, ScrollText, RefreshCw, Trophy,
-  LucideIcon,
+  Megaphone, LucideIcon,
 } from "lucide-react"
 
 const ICONS: Record<string, LucideIcon> = {
@@ -13,6 +13,7 @@ const ICONS: Record<string, LucideIcon> = {
   Wallet, ReceiptText, BookOpen, Landmark, TrendingDown, CalendarDays, UsersRound,
   ClipboardCheck, Vote, CheckSquare, FolderArchive, Boxes, GraduationCap, Library,
   Handshake, Archive, Bell, ArrowUpDown, ShieldCheck, ScrollText, RefreshCw, Trophy,
+  Megaphone,
 }
 
 export function Icon({ name, className }: { name: string; className?: string }) {

@@ -103,6 +103,12 @@ model Member {
   electionCands   ElectionCandidate[]
   activities      ActivityParticipant[]
   sportTeams      SportTeam[]
+  sportDelegates  SportDelegate[]
+  sportReferees   SportReferee[]
+  sportDelegateTeams SportTeam[] @relation("TeamDelegate")
+  sportTeamPlayers SportTeamPlayer[]
+  sportParticipationRequests SportParticipationRequest[]
+  sportParticipationAsDelegate SportParticipationRequest[] @relation("ParticipationDelegate")
   meetings        MeetingParticipant[]
   formations      FormationParticipant[]
   borrows         LibraryBorrow[]
@@ -372,44 +378,202 @@ model ActivityParticipant {
 }
 
 // ============================================================
-// MODULE SPORT — disciplines & équipes inter-classes
+// MODULE SPORT — compétitions inter-classes
 // ============================================================
+
+model SportCompetition {
+  id           String   @id @default(cuid())
+  name         String
+  description  String?
+  academicYear String?
+  startDate    DateTime?
+  endDate      DateTime?
+  fee          Float    @default(0) // art. 10 — participation financière obligatoire
+  status       String   @default("DRAFT") // DRAFT, OPEN, LAUNCHED, CLOSED
+  classes      String?  // JSON [{ className, level }] — classes/niveaux concernés
+  launchedAt   DateTime?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  disciplines  SportCompetitionDiscipline[]
+  teams        SportTeam[]
+  delegates    SportDelegate[]
+  referees     SportReferee[]
+  participants SportExceptionalParticipant[]
+  participationRequests SportParticipationRequest[]
+
+  @@index([status])
+}
+
+model SportCompetitionDiscipline {
+  id            String           @id @default(cuid())
+  competitionId String
+  competition   SportCompetition @relation(fields: [competitionId], references: [id], onDelete: Cascade)
+  disciplineId  String
+  discipline    SportDiscipline  @relation(fields: [disciplineId], references: [id], onDelete: Cascade)
+  createdAt     DateTime         @default(now())
+
+  @@unique([competitionId, disciplineId])
+}
 
 model SportDiscipline {
   id          String   @id @default(cuid())
   name        String   @unique
   description String?
   teamSize    Int      @default(5) // nombre de joueurs par équipe
+  // Règles de composition configurables (null = taille exacte teamSize)
+  minTeamSize Int?
+  maxTeamSize Int?
   active      Boolean  @default(true)
   createdAt   DateTime @default(now())
 
   teams       SportTeam[]
   matches     SportMatch[]
+  competitionDisciplines SportCompetitionDiscipline[]
+  positions   SportPosition[]
+  participationRequests SportParticipationRequest[]
+}
+
+model SportPosition {
+  id           String         @id @default(cuid())
+  disciplineId String
+  discipline   SportDiscipline @relation(fields: [disciplineId], references: [id], onDelete: Cascade)
+  name         String
+  createdAt    DateTime       @default(now())
+
+  @@unique([disciplineId, name])
+}
+
+model SportTeamPlayer {
+  id       String        @id @default(cuid())
+  teamId   String
+  team     SportTeam     @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  memberId String
+  member   Member        @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  position String?       // poste du joueur (obligatoire à la soumission)
+  confirmed Boolean      @default(true) // acceptation explicite du joueur
+  createdAt DateTime      @default(now())
+
+  @@unique([teamId, memberId])
+  @@index([memberId])
+}
+
+// Demande de participation d'un étudiant (→ responsable de classe) ou
+// sélection directe du responsable de classe (→ acceptation de l'étudiant).
+model SportParticipationRequest {
+  id            String           @id @default(cuid())
+  competitionId String
+  competition   SportCompetition @relation(fields: [competitionId], references: [id], onDelete: Cascade)
+  disciplineId  String
+  discipline    SportDiscipline  @relation(fields: [disciplineId], references: [id], onDelete: Cascade)
+  teamId        String?
+  team          SportTeam?       @relation(fields: [teamId], references: [id], onDelete: SetNull)
+  memberId      String           // étudiant demandeur / sélectionné
+  member        Member           @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  delegateId    String           // responsable sportif de classe destinataire
+  delegate      Member           @relation("ParticipationDelegate", fields: [delegateId], references: [id], onDelete: Cascade)
+  position      String           // poste demandé (obligatoire)
+  direction     String           @default("STUDENT") // STUDENT = étudiant → délégué, DELEGATE = délégué → étudiant
+  status        String           @default("PENDING") // PENDING, ACCEPTED, REFUSED
+  note          String?          // message de l'étudiant (direction STUDENT)
+  response      String?          // réponse / motif du refus
+  respondedAt   DateTime?
+  createdAt     DateTime         @default(now())
+
+  @@index([memberId])
+  @@index([delegateId])
+  @@index([competitionId])
+}
+
+model SportDelegate {
+  id            String   @id @default(cuid())
+  competitionId String
+  competition   SportCompetition @relation(fields: [competitionId], references: [id], onDelete: Cascade)
+  className     String
+  level         String   @default("") // L1, L2, L3 — vide pour l'Année Préparatoire
+  memberId      String
+  member        Member   @relation(fields: [memberId], references: [id])
+  status        String   @default("PENDING") // PENDING, ACTIVE, REVOKED
+  appointedById String?  // id utilisateur du responsable des sports de l'Amicale
+  appointedAt   DateTime @default(now())
+  validatedAt   DateTime?
+  createdAt     DateTime @default(now())
+
+  @@unique([competitionId, className, level])
+  @@index([memberId])
+}
+
+model SportReferee {
+  id            String   @id @default(cuid())
+  competitionId String
+  competition   SportCompetition @relation(fields: [competitionId], references: [id], onDelete: Cascade)
+  memberId      String?
+  member        Member?  @relation(fields: [memberId], references: [id], onDelete: SetNull)
+  fullName      String
+  status        String   @default("SELECTED") // SELECTED, VALIDATED, REVOKED
+  note          String?
+  createdAt     DateTime @default(now())
+  validatedAt   DateTime?
+
+  matches       SportMatch[]
+
+  @@unique([competitionId, memberId])
+  @@index([competitionId])
+}
+
+model SportExceptionalParticipant {
+  id            String   @id @default(cuid())
+  competitionId String
+  competition   SportCompetition @relation(fields: [competitionId], references: [id], onDelete: Cascade)
+  firstName     String
+  lastName      String
+  function      String?  // Directeur des études, Responsable pédagogique…
+  phone         String?
+  email         String?
+  createdById   String?
+  createdAt     DateTime @default(now())
+
+  @@index([competitionId])
 }
 
 model SportTeam {
-  id           String   @id @default(cuid())
-  disciplineId String
-  discipline   SportDiscipline @relation(fields: [disciplineId], references: [id], onDelete: Cascade)
-  className    String   // filière, ex. « Informatique et Gestion » (ou « AP »)
-  level        String   @default("") // L1, L2, L3 — vide pour l'Année Préparatoire
-  name         String   // nom de l'équipe
-  captainName  String?
-  players      String?  // liste des joueurs (JSON array)
-  status       String   @default("INSCRIPTION") // INSCRIPTION, CONFIRMED, REJECTED
-  memberId     String?  // membre ayant déposé l'inscription (null si créée par le bureau)
-  member       Member?  @relation(fields: [memberId], references: [id], onDelete: SetNull)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  id            String   @id @default(cuid())
+  competitionId String?
+  competition   SportCompetition? @relation(fields: [competitionId], references: [id], onDelete: SetNull)
+  disciplineId  String
+  discipline    SportDiscipline @relation(fields: [disciplineId], references: [id], onDelete: Cascade)
+  className     String   // filière, ex. « Informatique et Gestion » (ou « AP »)
+  level         String   @default("") // L1, L2, L3 — vide pour l'Année Préparatoire
+  name          String   // nom de l'équipe
+  kind          String   @default("CLASS") // CLASS, EXCEPTIONAL
+  captainName   String?
+  captainId     String?
+  players       String?  // JSON array de memberId — étudiants de la base, jamais saisis manuellement
+  participants  String?  // JSON array d'ids de participants exceptionnels (équipes EXCEPTIONAL uniquement)
+  status        String   @default("DRAFT") // DRAFT, SUBMITTED, UNDER_REVIEW, VALIDATED, REJECTED
+  refusalReason String?
+  submittedAt   DateTime?
+  validatedById String?
+  validatedAt   DateTime?
+  memberId      String?  // membre ayant déposé l'inscription (rétrocompat)
+  member        Member?  @relation(fields: [memberId], references: [id], onDelete: SetNull)
+  delegateId    String?  // membre désigné responsable sportif de classe
+  delegate      Member?  @relation("TeamDelegate", fields: [delegateId], references: [id], onDelete: SetNull)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 
-  // Règlement art. 2 : une seule équipe par classe et par discipline
-  @@unique([disciplineId, className, level])
+  // Règlement art. 2 : une seule équipe par classe et par discipline, par compétition
+  @@unique([competitionId, disciplineId, className, level])
+  @@index([competitionId])
   @@index([disciplineId])
   @@index([className, level])
   @@index([memberId])
+  @@index([delegateId])
 
   matchesA     SportMatch[] @relation("MatchTeamA")
   matchesB     SportMatch[] @relation("MatchTeamB")
+  teamPlayers  SportTeamPlayer[]
+  participationRequests SportParticipationRequest[]
 }
 
 model SportMatch {
@@ -420,6 +584,8 @@ model SportMatch {
   teamA        SportTeam @relation("MatchTeamA", fields: [teamAId], references: [id], onDelete: Cascade)
   teamBId      String
   teamB        SportTeam @relation("MatchTeamB", fields: [teamBId], references: [id], onDelete: Cascade)
+  refereeId    String?
+  referee      SportReferee? @relation(fields: [refereeId], references: [id], onDelete: SetNull)
   date         DateTime
   location     String?
   phase        String   @default("POOL") // POOL, QUARTER, SEMI, FINAL
@@ -431,6 +597,7 @@ model SportMatch {
 
   @@index([disciplineId])
   @@index([date])
+  @@index([refereeId])
 }
 
 // ============================================================
@@ -822,8 +989,20 @@ model Announcement {
   title       String
   body        String
   audience    String   @default("ALL") // ALL, MEMBERS, STAFF
+  category    String   @default("GENERAL") // GENERAL, COTISATION, SPORT, ACTIVITY, INFO
+  imageUrl    String?
+  gallery     String?  // JSON array d'URLs d'images
+  videoUrl    String?
+  fileUrl     String?
+  fileName    String?
+  linkUrl     String?
   pinned      Boolean  @default(false)
+  notify      Boolean  @default(false) // diffuser une notification aux membres
+  authorId    String?
   publishedAt DateTime @default(now())
   expiresAt   DateTime?
   createdAt   DateTime @default(now())
+
+  @@index([category])
+  @@index([publishedAt])
 }
