@@ -25,25 +25,23 @@ export async function GET(req: NextRequest) {
     orderBy: { startDate: "desc" },
     take: limit,
     include: {
-      options: { orderBy: { createdAt: "asc" } },
+      options: {
+        orderBy: { createdAt: "asc" },
+        include: { _count: { select: { ballots: true } } },
+      },
       _count: { select: { ballots: true } },
     },
   })
-  // Add ballot counts per option
-  const result = await Promise.all(
-    votes.map(async (v) => {
-      const optionCounts: Record<string, number> = {}
-      const opts = await db.voteOption.findMany({
-        where: { voteId: v.id },
-        select: { id: true, _count: { select: { ballots: true } } },
-      })
-      for (const o of opts) optionCounts[o.id] = o._count.ballots
-      return serialize({
-        ...v,
-        optionCounts,
-      })
+  // Add ballot counts per option (single query, no N+1)
+  const result = votes.map((v) => {
+    const optionCounts: Record<string, number> = {}
+    for (const o of v.options) optionCounts[o.id] = o._count.ballots
+    return serialize({
+      ...v,
+      options: v.options.map(({ _count: _c, ...o }) => o),
+      optionCounts,
     })
-  )
+  })
   return ok(result)
 }
 

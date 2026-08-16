@@ -1,14 +1,22 @@
 import { NextRequest } from "next/server"
 import { db } from "@/lib/db"
 import { seedDatabase } from "@/lib/sgiau/seed"
-import { ok, err } from "@/lib/sgiau/api"
+import { ok, err, requireAdmin } from "@/lib/sgiau/api"
 
 export const dynamic = "force-dynamic"
+
+async function adminGate() {
+  const gate = await requireAdmin()
+  if (gate.error) return err(gate.error === 401 ? "Non authentifié" : "Accès réservé aux administrateurs", gate.error)
+  return null
+}
 
 export async function POST(req: NextRequest) {
   if (process.env.NODE_ENV === "production") {
     return err("Le seed est désactivé en production", 403)
   }
+  const denied = await adminGate()
+  if (denied) return denied
   try {
     const body = await req.json().catch(() => ({}))
     const force = body?.force === true
@@ -24,6 +32,8 @@ export async function GET() {
   if (process.env.NODE_ENV === "production") {
     return err("Le seed est désactivé en production", 403)
   }
+  const denied = await adminGate()
+  if (denied) return denied
   const counts = {
     members: await db.member.count(),
     users: await db.user.count(),

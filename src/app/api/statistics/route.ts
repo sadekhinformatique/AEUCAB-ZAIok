@@ -5,20 +5,30 @@ export const dynamic = "force-dynamic"
 
 export async function GET() {
   const now = new Date()
+  const seriesStart = new Date(now.getFullYear(), now.getMonth() - 11, 1)
 
-  // Monthly revenue vs spend (12 months)
-  const payments = await db.payment.findMany({ where: { status: { in: ["PAID", "PARTIAL"] } }, select: { amountPaid: true, amount: true, paymentDate: true } })
-  const expenses = await db.expense.findMany({ where: { status: "VALIDATED" }, select: { amount: true, date: true, categoryId: true } })
+  // Monthly revenue vs spend (12 months, bounded to the window)
+  const [seriesPayments, seriesExpenses] = await Promise.all([
+    db.payment.findMany({ where: { status: { in: ["PAID", "PARTIAL"] }, paymentDate: { gte: seriesStart } }, select: { amountPaid: true, paymentDate: true } }),
+    db.expense.findMany({ where: { status: "VALIDATED", date: { gte: seriesStart } }, select: { amount: true, date: true } }),
+  ])
+
+  // All-time totals — computed in SQL, no full-table transfer
+  const [paymentTotals, expenseTotals, byCatRaw] = await Promise.all([
+    db.payment.aggregate({ where: { status: { in: ["PAID", "PARTIAL"] } }, _sum: { amount: true, amountPaid: true }, _count: true }),
+    db.expense.aggregate({ where: { status: "VALIDATED" }, _sum: { amount: true }, _count: true }),
+    db.expense.groupBy({ by: ["categoryId"], where: { status: "VALIDATED" }, _sum: { amount: true } }),
+  ])
 
   const months: { label: string; revenue: number; spend: number }[] = []
   for (let i = 11; i >= 0; i--) {
     const d = new Date(now.getFullYear(), now.getMonth() - i, 1)
     const start = d
     const end = new Date(d.getFullYear(), d.getMonth() + 1, 1)
-    const revenue = payments
+    const revenue = seriesPayments
       .filter((p) => { const pd = new Date(p.paymentDate); return pd >= start && pd < end })
       .reduce((s, p) => s + p.amountPaid, 0)
-    const spend = expenses
+    const spend = seriesExpenses
       .filter((e) => { const ed = new Date(e.date); return ed >= start && ed < end })
       .reduce((s, e) => s + e.amount, 0)
     months.push({ label: d.toLocaleDateString("fr-FR", { month: "short", year: "2-digit" }), revenue, spend })
@@ -52,9 +62,9 @@ export async function GET() {
     return { name: m ? `${m.firstName} ${m.lastName}` : "—", matricule: m?.matricule ?? "—", value: t._sum.amountPaid ?? 0 }
   })
 
-  // Recovery rate: total paid vs total due
-  const totalDue = payments.reduce((s, p) => s + p.amount, 0)
-  const totalPaid = payments.reduce((s, p) => s + p.amountPaid, 0)
+  // Recovery rate: total paid vs total due (all-time, SQL)
+  const totalDue = paymentTotals._sum.amount ?? 0
+  const totalPaid = paymentTotals._sum.amountPaid ?? 0
   const recovery = {
     paid: totalPaid,
     due: totalDue,
@@ -62,14 +72,14 @@ export async function GET() {
     rate: totalDue > 0 ? Math.round((totalPaid / totalDue) * 1000) / 10 : 0,
   }
 
-  // Expenses by category
-  const catIds = [...new Set(expenses.map((e) => e.categoryId).filter(Boolean))] as string[]
+  // Expenses by category (SQL groupBy)
+  const catIds = [...new Set(byCatRaw.map((e) => e.categoryId).filter(Boolean))] as string[]
   const categories = await db.expenseCategory.findMany({ where: { id: { in: catIds } } })
   const catMap = new Map(categories.map((c) => [c.id, c.name]))
   const byCatMap = new Map<string, number>()
-  for (const e of expenses) {
+  for (const e of byCatRaw) {
     const k = e.categoryId ? (catMap.get(e.categoryId) ?? "—") : "Non catégorisé"
-    byCatMap.set(k, (byCatMap.get(k) ?? 0) + e.amount)
+    byCatMap.set(k, (byCatMap.get(k) ?? 0) + (e._sum.amount ?? 0))
   }
   const expensesByCategory = Array.from(byCatMap.entries())
     .map(([name, value]) => ({ name, value }))
@@ -85,9 +95,9 @@ export async function GET() {
     expensesByCategory,
     totals: {
       revenue: totalPaid,
-      spend: expenses.reduce((s, e) => s + e.amount, 0),
-      payments: payments.length,
-      expenses: expenses.length,
+      spend: expenseTotals._sum.amount ?? 0,
+      payments: paymentTotals._count,
+      expenses: expenseTotals._count,
     },
   })
 }

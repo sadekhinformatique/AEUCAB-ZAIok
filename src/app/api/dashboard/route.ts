@@ -36,27 +36,30 @@ export async function GET() {
     db.notification.count({ where: { isRead: false } }),
   ])
 
-  // Financials
-  const payments = await db.payment.findMany({ where: { status: "PAID" }, select: { amountPaid: true, paymentDate: true } })
-  const revenue = payments.reduce((s, p) => s + p.amountPaid, 0)
-
-  const expenses = await db.expense.findMany({ where: { status: "VALIDATED" }, select: { amount: true, date: true } })
-  const spend = expenses.reduce((s, e) => s + e.amount, 0)
-
-  const cashAccounts = await db.cashAccount.findMany()
-  const cashBalance = cashAccounts.reduce((s, c) => s + c.balance, 0)
-
-  // Monthly series (last 8 months)
+  // Financials — SQL aggregates (independent of row volume)
   const now = new Date()
+  const seriesStart = new Date(now.getFullYear(), now.getMonth() - 7, 1)
+  const [paymentTotals, expenseTotals, cashTotals, seriesPayments, seriesExpenses] = await Promise.all([
+    db.payment.aggregate({ where: { status: "PAID" }, _sum: { amountPaid: true } }),
+    db.expense.aggregate({ where: { status: "VALIDATED" }, _sum: { amount: true } }),
+    db.cashAccount.aggregate({ _sum: { balance: true } }),
+    db.payment.findMany({ where: { status: "PAID", paymentDate: { gte: seriesStart } }, select: { amountPaid: true, paymentDate: true } }),
+    db.expense.findMany({ where: { status: "VALIDATED", date: { gte: seriesStart } }, select: { amount: true, date: true } }),
+  ])
+  const revenue = paymentTotals._sum.amountPaid ?? 0
+  const spend = expenseTotals._sum.amount ?? 0
+  const cashBalance = cashTotals._sum.balance ?? 0
+
+  // Monthly series (last 8 months, bounded to the window)
   const months: { label: string; revenue: number; spend: number }[] = []
   for (let i = 7; i >= 0; i--) {
     const d = new Date(now.getFullYear(), now.getMonth() - i, 1)
     const start = d
     const end = new Date(d.getFullYear(), d.getMonth() + 1, 1)
-    const mRev = payments
+    const mRev = seriesPayments
       .filter((p) => { const pd = new Date(p.paymentDate); return pd >= start && pd < end })
       .reduce((s, p) => s + p.amountPaid, 0)
-    const mSpend = expenses
+    const mSpend = seriesExpenses
       .filter((e) => { const ed = new Date(e.date); return ed >= start && ed < end })
       .reduce((s, e) => s + e.amount, 0)
     months.push({ label: d.toLocaleDateString("fr-FR", { month: "short" }), revenue: mRev, spend: mSpend })
