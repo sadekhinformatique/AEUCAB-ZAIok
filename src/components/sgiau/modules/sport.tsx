@@ -155,7 +155,7 @@ interface Competition {
   startDate: string | null; endDate: string | null; fee: number; status: string
   classes: string | null; launchedAt: string | null; createdAt: string
   _count?: { teams: number; delegates: number; referees: number; participants: number }
-  disciplines: { discipline: Discipline }[]
+  disciplines: { disciplineId: string; discipline: Discipline }[]
 }
 
 interface Delegate {
@@ -191,16 +191,64 @@ interface Team {
   member?: SimpleMember | null
   playersDetails?: PlayerDetail[]
   participantsDetails?: Participant[]
+  attachments?: { url: string; name: string; type?: string; size?: number }[]
 }
 
 interface Match {
   id: string; disciplineId: string; teamAId: string; teamBId: string; refereeId: string | null
   date: string; location: string | null; phase: string; status: string
   scoreA: number | null; scoreB: number | null
+  sheet?: Record<string, unknown> | null
+  sheetStatus?: string
+  sheetNumber?: string | null
+  sheetConfirmedAt?: string | null
   discipline?: Discipline
   teamA?: Team
   teamB?: Team
   referee?: { id: string; fullName: string; status: string } | null
+}
+
+interface SheetPlayer { name: string; number: number | null; goals: number; cards: string }
+interface MatchSheet {
+  scoreA: number; scoreB: number
+  playersA: SheetPlayer[]; playersB: SheetPlayer[]
+  refereeName: string; observations: string
+}
+
+const EMPTY_SHEET: MatchSheet = { scoreA: 0, scoreB: 0, playersA: [], playersB: [], refereeName: "", observations: "" }
+
+const SHEET_STATUS: Record<string, { label: string; cls: string }> = {
+  NONE: { label: "Pas de feuille", cls: "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300" },
+  DRAFT: { label: "Feuille brouillon", cls: "bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-200" },
+  CONFIRMED: { label: "Feuille confirmée", cls: "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-200" },
+}
+
+interface StandingRow {
+  teamId: string; teamName: string; className: string; level: string
+  played: number; won: number; drawn: number; lost: number
+  goalsFor: number; goalsAgainst: number; goalDiff: number; points: number
+}
+
+function parseSheet(raw: unknown): MatchSheet {
+  const s = (raw ?? {}) as Record<string, unknown>
+  const clean = (list: unknown): SheetPlayer[] =>
+    (Array.isArray(list) ? list : []).map((p) => {
+      const pp = (p ?? {}) as Record<string, unknown>
+      return {
+        name: typeof pp.name === "string" ? pp.name : "",
+        number: pp.number === null || pp.number === undefined || pp.number === "" ? null : Number(pp.number),
+        goals: pp.goals === null || pp.goals === undefined || pp.goals === "" ? 0 : Number(pp.goals),
+        cards: typeof pp.cards === "string" ? pp.cards : "NONE",
+      }
+    })
+  return {
+    scoreA: Number(s.scoreA) || 0,
+    scoreB: Number(s.scoreB) || 0,
+    playersA: clean(s.playersA),
+    playersB: clean(s.playersB),
+    refereeName: typeof s.refereeName === "string" ? s.refereeName : "",
+    observations: typeof s.observations === "string" ? s.observations : "",
+  }
 }
 
 const COMP_STATUS: Record<string, { label: string; cls: string }> = {
@@ -234,6 +282,12 @@ const REFEREE_STATUS: Record<string, { label: string; cls: string }> = {
 const MATCH_PHASE: Record<string, string> = {
   POOL: "Poules", QUARTER: "Quart de finale", SEMI: "Demi-finale", FINAL: "Finale",
 }
+const CARD_OPTIONS: { value: string; label: string }[] = [
+  { value: "NONE", label: "Aucun carton" },
+  { value: "YELLOW", label: "Carton jaune" },
+  { value: "DOUBLE_YELLOW", label: "Deuxième jaune" },
+  { value: "RED", label: "Carton rouge" },
+]
 const MATCH_STATUS: Record<string, { label: string; cls: string }> = {
   SCHEDULED: { label: "Planifié", cls: "bg-cyan-100 text-cyan-800 dark:bg-cyan-950 dark:text-cyan-200" },
   PLAYED: { label: "Joué", cls: "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-200" },
@@ -290,6 +344,10 @@ export default function SportModule() {
   const [referees, setReferees] = useState<Referee[]>([])
   const [participants, setParticipants] = useState<Participant[]>([])
   const [matches, setMatches] = useState<Match[]>([])
+  const [standings, setStandings] = useState<StandingRow[]>([])
+  const [standingsComp, setStandingsComp] = useState("ALL")
+  const [standingsDisc, setStandingsDisc] = useState("ALL")
+  const [standingsLoading, setStandingsLoading] = useState(false)
 
   const [compFilter, setCompFilter] = useState("ALL")
   const [q, setQ] = useState("")
@@ -321,6 +379,29 @@ export default function SportModule() {
   }, [])
 
   useEffect(() => { load() }, [load])
+
+  // Classements : chargés dès qu'une compétition ET une discipline sont choisies
+  useEffect(() => {
+    if (standingsComp === "ALL" || standingsDisc === "ALL") {
+      void Promise.resolve().then(() => {
+        setStandings([])
+        setStandingsLoading(false)
+      })
+      return
+    }
+    void (async () => {
+      setStandingsLoading(true)
+      try {
+        const r = await fetch(`/api/sport/standings?competitionId=${standingsComp}&disciplineId=${standingsDisc}`)
+        const data = await r.json()
+        setStandings(Array.isArray(data) ? data : [])
+      } catch {
+        setStandings([])
+      } finally {
+        setStandingsLoading(false)
+      }
+    })()
+  }, [standingsComp, standingsDisc])
 
   const compOf = (team: Team) => competitions.find((c) => c.id === team.competitionId)
 
@@ -357,6 +438,7 @@ export default function SportModule() {
   const [participantEditing, setParticipantEditing] = useState<Participant | null>(null)
   const [matchOpen, setMatchOpen] = useState(false)
   const [matchEditing, setMatchEditing] = useState<Match | null>(null)
+  const [sheetTarget, setSheetTarget] = useState<Match | null>(null)
   const [discOpen, setDiscOpen] = useState(false)
   const [discEditing, setDiscEditing] = useState<Discipline | null>(null)
 
@@ -368,6 +450,7 @@ export default function SportModule() {
   function openParticipantDialog(p: Participant | null) { setParticipantEditing(p); setParticipantOpen(true) }
   function openRefereeDialog(r: Referee | null) { setRefereeEditing(r); setRefereeOpen(true) }
   function openMatchDialog(m: Match | null) { setMatchEditing(m); setMatchOpen(true) }
+  function openSheetDialog(m: Match) { setSheetTarget(m) }
   function openDisciplineDialog(d: Discipline | null) { setDiscEditing(d); setDiscOpen(true) }
 
   async function setCompStatus(c: Competition, status: string) {
@@ -542,6 +625,7 @@ export default function SportModule() {
           <TabsTrigger value="exceptional" className="gap-2"><UserPlus className="h-4 w-4" /> Exceptionnels</TabsTrigger>
           <TabsTrigger value="referees" className="gap-2"><Medal className="h-4 w-4" /> Arbitres</TabsTrigger>
           <TabsTrigger value="matches" className="gap-2"><CalendarDays className="h-4 w-4" /> Matchs</TabsTrigger>
+          <TabsTrigger value="standings" className="gap-2"><Trophy className="h-4 w-4" /> Classements</TabsTrigger>
           <TabsTrigger value="disciplines" className="gap-2"><Dumbbell className="h-4 w-4" /> Disciplines</TabsTrigger>
         </TabsList>
 
@@ -1016,10 +1100,29 @@ export default function SportModule() {
                           </TableCell>
                           <TableCell className="hidden md:table-cell text-sm">{m.referee?.fullName ?? "—"}</TableCell>
                           <TableCell className="hidden lg:table-cell text-sm text-muted-foreground">{m.location ?? "—"}</TableCell>
-                          <TableCell><StatusBadge status={m.status} map={MATCH_STATUS} /></TableCell>
+                          <TableCell>
+                            <div className="flex flex-wrap items-center gap-1">
+                              <StatusBadge status={m.status} map={MATCH_STATUS} />
+                              {m.sheetStatus && m.sheetStatus !== "NONE" && (
+                                <StatusBadge status={m.sheetStatus} map={SHEET_STATUS} />
+                              )}
+                            </div>
+                            {m.sheetStatus === "CONFIRMED" && m.sheetNumber && (
+                              <p className="mt-1 font-mono text-[10px] text-muted-foreground">Feuille n° {m.sheetNumber}</p>
+                            )}
+                          </TableCell>
                           <TableCell className="text-right">
                             {rsa && (
                               <div className="flex items-center justify-end gap-1">
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className={cn("gap-1.5 text-xs", m.sheetStatus === "CONFIRMED" ? "text-emerald-600" : "text-primary")}
+                                  onClick={() => openSheetDialog(m)}
+                                >
+                                  <FileText className="h-3.5 w-3.5" />
+                                  {m.sheetStatus === "CONFIRMED" ? "Feuille" : m.sheetStatus === "DRAFT" ? "Feuille (brouillon)" : "Feuille de match"}
+                                </Button>
                                 <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openMatchDialog(m)}><Pencil className="h-4 w-4" /></Button>
                                 <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => removeMatch(m)}><Trash2 className="h-4 w-4" /></Button>
                               </div>
@@ -1028,6 +1131,95 @@ export default function SportModule() {
                         </TableRow>
                       )
                     })}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
+          </SectionCard>
+        </TabsContent>
+
+        {/* ================= CLASSEMENTS ================= */}
+        <TabsContent value="standings" className="mt-4">
+          <SectionCard
+            title="Classements & résultats officiels"
+            description="Classements calculés uniquement à partir des feuilles de match confirmées par le responsable des sports. Publiés automatiquement dans l'application étudiante."
+          >
+            <div className="mb-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label className="text-xs font-medium">Compétition</Label>
+                <Select value={standingsComp} onValueChange={(v) => { setStandingsComp(v); setStandingsDisc("ALL") }}>
+                  <SelectTrigger><SelectValue placeholder="Choisir…" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="ALL">Toutes</SelectItem>
+                    {competitions.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs font-medium">Discipline</Label>
+                <Select value={standingsDisc} onValueChange={setStandingsDisc} disabled={standingsComp === "ALL"}>
+                  <SelectTrigger><SelectValue placeholder="Choisir…" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="ALL">Toutes</SelectItem>
+                    {(competitions.find((c) => c.id === standingsComp)?.disciplines ?? []).map((cd) => (
+                      <SelectItem key={cd.disciplineId} value={cd.disciplineId}>{cd.discipline?.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            {standingsComp === "ALL" || standingsDisc === "ALL" ? (
+              <EmptyState icon={Trophy} title="Sélectionnez une compétition et une discipline" description="Le classement est calculé automatiquement dès qu'une feuille de match est confirmée." />
+            ) : standingsLoading ? (
+              <LoadingState rows={4} />
+            ) : standings.length === 0 ? (
+              <EmptyState icon={Trophy} title="Aucune équipe classée" description="Aucune feuille de match confirmée pour cette discipline pour le moment." />
+            ) : (
+              <div className="rounded-lg border overflow-hidden">
+                <Table>
+                  <TableHeader className="bg-muted/50">
+                    <TableRow>
+                      <TableHead className="w-10">#</TableHead>
+                      <TableHead>Équipe</TableHead>
+                      <TableHead className="hidden sm:table-cell">Classe</TableHead>
+                      <TableHead className="text-center">J</TableHead>
+                      <TableHead className="text-center">G</TableHead>
+                      <TableHead className="text-center">N</TableHead>
+                      <TableHead className="text-center">P</TableHead>
+                      <TableHead className="text-center hidden md:table-cell">BP</TableHead>
+                      <TableHead className="text-center hidden md:table-cell">BC</TableHead>
+                      <TableHead className="text-center">Diff</TableHead>
+                      <TableHead className="text-right">Pts</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {standings.map((r, i) => (
+                      <TableRow key={r.teamId} className={i === 0 ? "bg-emerald-50/50 dark:bg-emerald-950/20" : undefined}>
+                        <TableCell className="text-sm">
+                          <span className={cn("flex h-6 w-6 items-center justify-center rounded-full text-[11px] font-bold",
+                            i === 0 ? "bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300" :
+                            i === 1 ? "bg-slate-200 text-slate-700 dark:bg-slate-800 dark:text-slate-300" :
+                            i === 2 ? "bg-orange-100 text-orange-700 dark:bg-orange-950 dark:text-orange-300" :
+                            "bg-muted text-muted-foreground")}>{i + 1}</span>
+                        </TableCell>
+                        <TableCell>
+                          <span className="text-sm font-medium">{r.teamName}</span>
+                          {r.points > 0 && (
+                            <p className="text-[10px] text-muted-foreground">{r.won + r.drawn + r.lost === 0 ? "Aucun match joué" : ""}</p>
+                          )}
+                        </TableCell>
+                        <TableCell className="hidden sm:table-cell text-sm text-muted-foreground">{[r.className, r.level].filter(Boolean).join(" ") || "—"}</TableCell>
+                        <TableCell className="text-center text-sm tabular-nums">{r.played}</TableCell>
+                        <TableCell className="text-center text-sm tabular-nums">{r.won}</TableCell>
+                        <TableCell className="text-center text-sm tabular-nums">{r.drawn}</TableCell>
+                        <TableCell className="text-center text-sm tabular-nums">{r.lost}</TableCell>
+                        <TableCell className="text-center text-sm tabular-nums hidden md:table-cell">{r.goalsFor}</TableCell>
+                        <TableCell className="text-center text-sm tabular-nums hidden md:table-cell">{r.goalsAgainst}</TableCell>
+                        <TableCell className="text-center text-sm tabular-nums">{r.goalDiff > 0 ? `+${r.goalDiff}` : r.goalDiff}</TableCell>
+                        <TableCell className="text-right text-sm font-bold tabular-nums">{r.points}</TableCell>
+                      </TableRow>
+                    ))}
                   </TableBody>
                 </Table>
               </div>
@@ -1157,6 +1349,7 @@ export default function SportModule() {
       <RefereeDialog open={refereeOpen} onOpenChange={setRefereeOpen} editing={refereeEditing} competitions={competitions} compFilter={compFilter} onSaved={load} />
       <ParticipantDialog open={participantOpen} onOpenChange={setParticipantOpen} editing={participantEditing} competitions={competitions} compFilter={compFilter} onSaved={load} />
       <MatchDialog open={matchOpen} onOpenChange={setMatchOpen} editing={matchEditing} competitions={competitions} teams={teams} referees={referees} compFilter={compFilter} onSaved={load} />
+      <MatchSheetDialog match={sheetTarget} onOpenChange={(v) => { if (!v) setSheetTarget(null) }} onSaved={load} />
       <DisciplineDialog open={discOpen} onOpenChange={setDiscOpen} editing={discEditing} onSaved={load} />
     </div>
   )
@@ -1873,6 +2066,19 @@ function TeamDetailDialog({ target, onClose }: { target: Team | null; onClose: (
               </div>
             </div>
           )}
+          {t.attachments && (t.attachments as { url: string; name: string }[]).length > 0 && (
+            <div>
+              <p className="text-xs font-medium text-muted-foreground mb-1.5">Pièces jointes ({(t.attachments as { url: string; name: string }[]).length})</p>
+              <div className="space-y-1">
+                {(t.attachments as { url: string; name: string }[]).map((a) => (
+                  <a key={a.url} href={a.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 rounded-lg border bg-muted/30 px-3 py-1.5 text-sm text-primary hover:bg-muted">
+                    <FileText className="h-4 w-4 shrink-0" />
+                    <span className="truncate">{a.name}</span>
+                  </a>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={onClose}>Fermer</Button>
@@ -2293,6 +2499,258 @@ function MatchDialog({ open, onOpenChange, editing, competitions, teams, referee
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>Annuler</Button>
           <Button onClick={save} disabled={saving}>{saving ? "Enregistrement…" : "Enregistrer"}</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+function MatchSheetDialog({ match, onOpenChange, onSaved }: {
+  match: Match | null
+  onOpenChange: (v: boolean) => void
+  onSaved: () => void
+}) {
+  const [sheet, setSheet] = useState<MatchSheet>(EMPTY_SHEET)
+  const [saving, setSaving] = useState(false)
+  const [confirming, setConfirming] = useState(false)
+  const confirmed = match?.sheetStatus === "CONFIRMED"
+
+  useEffect(() => {
+    if (!match) return
+    setSheet(parseSheet(match.sheet))
+  }, [match])
+
+  const teamAName = match?.teamA?.name ?? "Équipe A"
+  const teamBName = match?.teamB?.name ?? "Équipe B"
+
+  function patchPlayer(team: "A" | "B", index: number, patch: Partial<SheetPlayer>) {
+    const key = team === "A" ? "playersA" : "playersB"
+    setSheet((s) => ({ ...s, [key]: s[key].map((p, i) => (i === index ? { ...p, ...patch } : p)) }))
+  }
+  function addPlayer(team: "A" | "B") {
+    const key = team === "A" ? "playersA" : "playersB"
+    setSheet((s) => ({ ...s, [key]: [...s[key], { name: "", number: null, goals: 0, cards: "NONE" }] }))
+  }
+  function removePlayer(team: "A" | "B", index: number) {
+    const key = team === "A" ? "playersA" : "playersB"
+    setSheet((s) => ({ ...s, [key]: s[key].filter((_, i) => i !== index) }))
+  }
+
+  const totalA = sheet.playersA.reduce((acc, p) => acc + (p.goals || 0), 0)
+  const totalB = sheet.playersB.reduce((acc, p) => acc + (p.goals || 0), 0)
+  const goalsOk = totalA === sheet.scoreA && totalB === sheet.scoreB
+
+  async function saveDraft() {
+    if (!match) return
+    setSaving(true)
+    try {
+      const res = await fetch(`/api/sport/matches/${match.id}/sheet`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(sheet),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data?.error || "Erreur")
+      toast.success("Brouillon de la feuille enregistré")
+      onSaved()
+      onOpenChange(false)
+    } catch (e) {
+      toast.error((e as Error).message)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  async function confirmSheet() {
+    if (!match) return
+    if (sheet.playersA.length === 0 || sheet.playersB.length === 0) {
+      toast.error("La feuille doit contenir les joueurs des deux équipes")
+      return
+    }
+    if (!goalsOk) {
+      toast.error("Le total des buts doit correspondre au score de chaque équipe")
+      return
+    }
+    if (!window.confirm("Confirmer officiellement la feuille de match ? Le score sera figé et le classement mis à jour.")) return
+    setConfirming(true)
+    try {
+      const res = await fetch(`/api/sport/matches/${match.id}/sheet/confirm`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sheet }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data?.error || "Erreur")
+      toast.success(`Feuille confirmée — n° ${data.sheetNumber ?? ""}`)
+      onSaved()
+      onOpenChange(false)
+    } catch (e) {
+      toast.error((e as Error).message)
+    } finally {
+      setConfirming(false)
+    }
+  }
+
+  async function reopenSheet() {
+    if (!match) return
+    if (!window.confirm("Rouvrir la feuille pour correction ? Le match repassera « planifié » et le score sera dégelé jusqu'à re-confirmation.")) return
+    setSaving(true)
+    try {
+      const res = await fetch(`/api/sport/matches/${match.id}/sheet/reopen`, { method: "POST" })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data?.error || "Erreur")
+      toast.success("Feuille rouverte pour correction")
+      onSaved()
+      onOpenChange(false)
+    } catch (e) {
+      toast.error((e as Error).message)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const cardBadge = (cards: string) => {
+    if (cards === "YELLOW") return <span className="rounded bg-amber-100 px-1 py-0.5 text-[9px] font-semibold text-amber-700">🟨 J</span>
+    if (cards === "DOUBLE_YELLOW") return <span className="rounded bg-amber-200 px-1 py-0.5 text-[9px] font-semibold text-amber-800">🟨🟨 2J</span>
+    if (cards === "RED") return <span className="rounded bg-rose-100 px-1 py-0.5 text-[9px] font-semibold text-rose-700">🟥 R</span>
+    return null
+  }
+
+  const playersEditor = (team: "A" | "B", teamName: string) => (
+    <div className="space-y-1.5">
+      <div className="flex items-center justify-between">
+        <Label className="text-xs font-medium">{teamName} — joueurs</Label>
+        {!confirmed && (
+          <Button type="button" variant="outline" size="sm" className="gap-1" onClick={() => addPlayer(team)}>
+            <Plus className="h-3.5 w-3.5" /> Ajouter
+          </Button>
+        )}
+      </div>
+      {(team === "A" ? sheet.playersA : sheet.playersB).length === 0 ? (
+        <p className="rounded border border-dashed p-2 text-center text-[11px] text-muted-foreground">Ajoutez les joueurs de {teamName}</p>
+      ) : (
+        <div className="space-y-1.5">
+          {(team === "A" ? sheet.playersA : sheet.playersB).map((p, i) => (
+            <div key={i} className="flex items-center gap-1.5">
+              <Input
+                className="h-8 flex-1 min-w-0"
+                placeholder="Nom du joueur"
+                value={p.name}
+                disabled={confirmed}
+                onChange={(e) => patchPlayer(team, i, { name: e.target.value })}
+              />
+              <Input
+                className="h-8 w-12"
+                type="number"
+                min={0}
+                placeholder="N°"
+                value={p.number ?? ""}
+                disabled={confirmed}
+                onChange={(e) => patchPlayer(team, i, { number: e.target.value === "" ? null : Number(e.target.value) })}
+              />
+              <Input
+                className="h-8 w-14"
+                type="number"
+                min={0}
+                placeholder="Buts"
+                value={p.goals}
+                disabled={confirmed}
+                onChange={(e) => patchPlayer(team, i, { goals: e.target.value === "" ? 0 : Number(e.target.value) })}
+              />
+              {confirmed ? (
+                cardBadge(p.cards)
+              ) : (
+                <Select value={p.cards} onValueChange={(v) => patchPlayer(team, i, { cards: v })}>
+                  <SelectTrigger className="h-8 w-[130px]"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {CARD_OPTIONS.map((c) => <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              )}
+              {!confirmed && (
+                <Button type="button" variant="ghost" size="icon" className="h-8 w-8 shrink-0 text-destructive" onClick={() => removePlayer(team, i)}>
+                  <XCircle className="h-4 w-4" />
+                </Button>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+      {!confirmed && (
+        <p className="text-[10px] text-muted-foreground">
+          {totalA} but(s) saisi(s) — score {sheet.scoreA}
+        </p>
+      )}
+    </div>
+  )
+
+  return (
+    <Dialog open={!!match} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto scroll-thin">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <FileText className="h-5 w-5 text-primary" />
+            Feuille de match{match?.sheetNumber ? ` n° ${match.sheetNumber}` : ""}
+          </DialogTitle>
+          <p className="text-xs text-muted-foreground">
+            {teamAName} vs {teamBName} — {match ? formatDateTime(match.date) : ""}
+          </p>
+        </DialogHeader>
+
+        {confirmed && match?.sheetConfirmedAt && (
+          <div className="flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-800 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-300">
+            <Lock className="h-3.5 w-3.5 shrink-0" />
+            Feuille officiellement confirmée le {formatDateTime(match.sheetConfirmedAt)} — le score est figé et publié dans les classements.
+          </div>
+        )}
+        {!confirmed && match?.sheetStatus === "DRAFT" && (
+          <div className="flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-300">
+            <Unlock className="h-3.5 w-3.5 shrink-0" />
+            Brouillon en cours — confirmez la feuille pour officialiser le score et mettre à jour le classement.
+          </div>
+        )}
+
+        <div className="space-y-4 py-2">
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label className="text-xs font-medium">Score {teamAName}</Label>
+              <Input type="number" min={0} value={sheet.scoreA} disabled={confirmed} onChange={(e) => setSheet((s) => ({ ...s, scoreA: Math.max(0, Number(e.target.value) || 0) }))} />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs font-medium">Score {teamBName}</Label>
+              <Input type="number" min={0} value={sheet.scoreB} disabled={confirmed} onChange={(e) => setSheet((s) => ({ ...s, scoreB: Math.max(0, Number(e.target.value) || 0) }))} />
+            </div>
+          </div>
+
+          {playersEditor("A", teamAName)}
+          {playersEditor("B", teamBName)}
+
+          <div className="space-y-1.5">
+            <Label className="text-xs font-medium">Arbitre de la rencontre</Label>
+            <Input value={sheet.refereeName} disabled={confirmed} placeholder="Nom de l'arbitre" onChange={(e) => setSheet((s) => ({ ...s, refereeName: e.target.value }))} />
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-xs font-medium">Observations</Label>
+            <Textarea rows={3} value={sheet.observations} disabled={confirmed} placeholder="Blessures, incidents, forfaits…" onChange={(e) => setSheet((s) => ({ ...s, observations: e.target.value }))} />
+          </div>
+        </div>
+
+        <DialogFooter className="flex-wrap gap-2">
+          {confirmed ? (
+            <Button variant="outline" className="gap-2" onClick={reopenSheet} disabled={saving}>
+              <RotateCcw className="h-4 w-4" /> Rouvrir pour correction
+            </Button>
+          ) : (
+            <>
+              <Button variant="outline" onClick={saveDraft} disabled={saving || confirming}>
+                {saving ? "Enregistrement…" : "Enregistrer le brouillon"}
+              </Button>
+              <Button className="gap-2" onClick={confirmSheet} disabled={saving || confirming}>
+                <CheckCircle2 className="h-4 w-4" />
+                {confirming ? "Confirmation…" : "Confirmer la feuille officielle"}
+              </Button>
+            </>
+          )}
         </DialogFooter>
       </DialogContent>
     </Dialog>

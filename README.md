@@ -81,6 +81,26 @@ bun run dev
 
 L'application est disponible sur `http://localhost:3000` — connectez-vous avec un compte créé par `auth:init` (ex. `admin`).
 
+## 🧪 Tests E2E (Playwright)
+
+Tests de non-régression du SAS et de l'application étudiante (navigateur réel, mobile + desktop) :
+
+```bash
+bun run test:e2e           # exécution headless (réutilise le serveur dev du port 3000)
+bun run test:e2e:headed    # exécution visible
+bun run test:e2e:ui        # interface Playwright (explorateur de tests)
+```
+
+- Config : `playwright.config.ts` · Tests : `tests/e2e/*.spec.ts`.
+- Vérifie le chargement des écrans (login SAS, app étudiante), la protection des routes
+  (401/redirects), l'API health et le flux d'erreur de connexion.
+
+## ✨ Composants animés (Aceternity-style)
+
+- `src/components/motion/fade-in.tsx` — `FadeIn`, `Stagger`, `StaggerItem` (framer-motion) :
+  apparitions en fondu au scroll, cartes en cascade. Utilisés sur l'accueil et le sport de
+  l'app étudiante.
+
 ### Mode production (auto-hébergement)
 
 ```bash

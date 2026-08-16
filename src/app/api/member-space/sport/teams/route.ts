@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server"
 import { db } from "@/lib/db"
 import { ok, err, audit, serialize, getCurrentUserId, resolveMemberId, notifyRole } from "@/lib/sgiau/api"
-import { checkTeamRules, parseIdArray, stringifyIds, withTeamDetails } from "@/lib/sgiau/sport"
+import { checkTeamRules, parseIdArray, stringifyIds, withTeamDetails, parseAttachments, stringifyAttachments } from "@/lib/sgiau/sport"
 import { SPORT_RESPONSABLE_ROLE } from "@/lib/sgiau/constants"
 
 export const dynamic = "force-dynamic"
@@ -36,7 +36,7 @@ export async function POST(req: NextRequest) {
   if (!r.memberId) return err("memberId requis", 422)
 
   const body = await req.json()
-  const { competitionId, disciplineId, name, captainId, playerIds, positions } = body
+  const { competitionId, disciplineId, name, captainId, playerIds, positions, attachments } = body
   if (!competitionId) return err("La compétition est requise", 422)
   if (!disciplineId) return err("La discipline est requise", 422)
 
@@ -117,6 +117,10 @@ export async function POST(req: NextRequest) {
           confirmed: true,
         })),
       })
+    }
+    const att = parseAttachments(attachments)
+    if (att.length) {
+      await tx.sportTeam.update({ where: { id: t.id }, data: { attachments: stringifyAttachments(att) } })
     }
     return t
   })

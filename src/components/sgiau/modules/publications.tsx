@@ -22,6 +22,7 @@ import {
 } from "@/components/ui/dialog"
 import { toast } from "sonner"
 import { formatDate, formatDateTime } from "@/lib/sgiau/format"
+import { FileUploadButton, fileAcceptByType } from "@/components/sgiau/upload-button"
 
 interface Publication {
   id: string
@@ -282,18 +283,27 @@ export default function PublicationsModule() {
               </div>
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs font-medium flex items-center gap-1.5"><ImageIcon className="h-3.5 w-3.5" /> Image principale (URL)</Label>
-              <Input value={form.imageUrl} onChange={(e) => setForm({ ...form, imageUrl: e.target.value })} placeholder="https://…/photo.jpg" />
+              <Label className="text-xs font-medium flex items-center gap-1.5"><ImageIcon className="h-3.5 w-3.5" /> Image principale</Label>
+              <div className="flex gap-2">
+                <Input value={form.imageUrl} onChange={(e) => setForm({ ...form, imageUrl: e.target.value })} placeholder="URL externe ou /uploads/…" />
+                <FileUploadButton folder="announcements" accept={fileAcceptByType("image")} label="Image" className="shrink-0" onUploaded={(m) => setForm({ ...form, imageUrl: m.url })} />
+              </div>
               {form.imageUrl && <img src={form.imageUrl} alt="" className="h-28 w-full rounded-lg border object-cover" />}
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs font-medium flex items-center gap-1.5"><Video className="h-3.5 w-3.5" /> Vidéo (URL)</Label>
-              <Input value={form.videoUrl} onChange={(e) => setForm({ ...form, videoUrl: e.target.value })} placeholder="https://youtube.com/… ou mp4" />
+              <Label className="text-xs font-medium flex items-center gap-1.5"><Video className="h-3.5 w-3.5" /> Vidéo</Label>
+              <div className="flex gap-2">
+                <Input value={form.videoUrl} onChange={(e) => setForm({ ...form, videoUrl: e.target.value })} placeholder="URL externe ou /uploads/…" />
+                <FileUploadButton folder="announcements" accept={fileAcceptByType("video")} label="Vidéo" className="shrink-0" onUploaded={(m) => setForm({ ...form, videoUrl: m.url })} />
+              </div>
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
-                <Label className="text-xs font-medium flex items-center gap-1.5"><FileText className="h-3.5 w-3.5" /> Fichier / PDF (URL)</Label>
-                <Input value={form.fileUrl} onChange={(e) => setForm({ ...form, fileUrl: e.target.value })} placeholder="https://…/document.pdf" />
+                <Label className="text-xs font-medium flex items-center gap-1.5"><FileText className="h-3.5 w-3.5" /> Fichier / PDF</Label>
+                <div className="flex gap-2">
+                  <Input value={form.fileUrl} onChange={(e) => setForm({ ...form, fileUrl: e.target.value, fileName: form.fileName || e.target.value.split("/").pop() || "" })} placeholder="URL externe ou /uploads/…" />
+                  <FileUploadButton folder="announcements" accept={fileAcceptByType("document")} label="Fichier" className="shrink-0" onUploaded={(m) => setForm({ ...form, fileUrl: m.url, fileName: m.name })} />
+                </div>
               </div>
               <div className="space-y-1.5">
                 <Label className="text-xs font-medium">Nom du fichier</Label>

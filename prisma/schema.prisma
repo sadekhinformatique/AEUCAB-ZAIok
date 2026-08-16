@@ -550,6 +550,7 @@ model SportTeam {
   captainId     String?
   players       String?  // JSON array de memberId — étudiants de la base, jamais saisis manuellement
   participants  String?  // JSON array d'ids de participants exceptionnels (équipes EXCEPTIONAL uniquement)
+  attachments   String?  // JSON array [{ url, name, type, size }] — pièces jointes (règlement, photos…)
   status        String   @default("DRAFT") // DRAFT, SUBMITTED, UNDER_REVIEW, VALIDATED, REJECTED
   refusalReason String?
   submittedAt   DateTime?
@@ -592,6 +593,11 @@ model SportMatch {
   status       String   @default("SCHEDULED") // SCHEDULED, PLAYED, CANCELLED
   scoreA       Int?
   scoreB       Int?
+  sheet        Json? // feuille de match (joueurs, buts, cartons, observations)
+  sheetStatus  String   @default("NONE") // NONE, DRAFT, CONFIRMED
+  sheetNumber  String? // numéro officiel de la feuille confirmée
+  sheetConfirmedAt DateTime?
+  sheetConfirmedBy String?
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 

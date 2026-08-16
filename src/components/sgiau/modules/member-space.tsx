@@ -23,6 +23,10 @@ import { toast } from "sonner"
 import { formatDate, formatDateTime, initials } from "@/lib/sgiau/format"
 import { UCAB_FULL_NAME } from "@/lib/sgiau/constants"
 import { QrBlock } from "@/components/sgiau/qr-block"
+import { FadeIn, Stagger, StaggerItem } from "@/components/motion/fade-in"
+import { FileUploadButton, fileAcceptByType } from "@/components/sgiau/upload-button"
+
+interface TeamAttachmentUI { url: string; name: string; type?: string; size?: number }
 
 interface SimpleMember { id: string; matricule: string; firstName: string; lastName: string; faculty: string | null; level: string | null }
 
@@ -332,7 +336,7 @@ export default function MemberSpaceModule() {
                       className={`flex flex-col items-center justify-center py-2 gap-0.5 ${active ? "text-primary" : "text-muted-foreground"}`}
                     >
                       <Icon className="h-4 w-4" />
-                      <span className="text-[9px] font-medium">{t.label}</span>
+                      <span className="text-[10px] font-medium leading-none">{t.label}</span>
                     </button>
                   )
                 })}
@@ -460,11 +464,14 @@ export function HomeTab({ profile, announcements, setTab }: { profile: MemberPro
   const m = profile.member
   return (
     <div className="p-3 space-y-3">
-      <div className="rounded-xl bg-gradient-to-br from-primary to-primary/80 text-primary-foreground p-4">
-        <p className="text-xs opacity-80">Bonjour</p>
-        <p className="text-lg font-semibold">{m.firstName} {m.lastName}</p>
-        <p className="text-[10px] opacity-80 font-mono">{m.matricule}</p>
-      </div>
+      <FadeIn>
+        <div className="rounded-xl bg-gradient-to-br from-primary to-primary/80 text-primary-foreground p-4 relative overflow-hidden">
+          <div className="pointer-events-none absolute -top-8 -right-8 h-24 w-24 rounded-full bg-white/15 blur-xl" />
+          <p className="text-xs opacity-80">Bonjour</p>
+          <p className="text-lg font-semibold">{m.firstName} {m.lastName}</p>
+          <p className="text-[10px] opacity-80 font-mono">{m.matricule}</p>
+        </div>
+      </FadeIn>
 
       {/* Suivi de la demande d'adhésion */}
       {m.adhesion && (
@@ -472,23 +479,27 @@ export function HomeTab({ profile, announcements, setTab }: { profile: MemberPro
       )}
 
       {/* Quick stats */}
-      <div className="grid grid-cols-2 gap-2">
-        <button onClick={() => setTab("payments")} className="rounded-lg border bg-card p-3 text-left">
-          <div className="flex items-center justify-between">
-            <Wallet className="h-4 w-4 text-muted-foreground" />
-            {profile.stats.isUpToDate ? <CheckCircle2 className="h-4 w-4 text-emerald-600" /> : <AlertCircle className="h-4 w-4 text-amber-600" />}
-          </div>
-          <p className="text-[10px] text-muted-foreground mt-2">Cotisation</p>
-          <p className="text-sm font-semibold">{profile.stats.isUpToDate ? "À jour" : "En retard"}</p>
-        </button>
-        <button onClick={() => setTab("documents")} className="rounded-lg border bg-card p-3 text-left">
-          <div className="flex items-center justify-between">
-            <FileText className="h-4 w-4 text-muted-foreground" />
-          </div>
-          <p className="text-[10px] text-muted-foreground mt-2">Statut</p>
-          <p className="text-sm font-semibold">{m.status}</p>
-        </button>
-      </div>
+      <Stagger className="grid grid-cols-2 gap-2">
+        <StaggerItem>
+          <button onClick={() => setTab("payments")} className="w-full rounded-lg border bg-card p-3 text-left">
+            <div className="flex items-center justify-between">
+              <Wallet className="h-4 w-4 text-muted-foreground" />
+              {profile.stats.isUpToDate ? <CheckCircle2 className="h-4 w-4 text-emerald-600" /> : <AlertCircle className="h-4 w-4 text-amber-600" />}
+            </div>
+            <p className="text-[10px] text-muted-foreground mt-2">Cotisation</p>
+            <p className="text-sm font-semibold">{profile.stats.isUpToDate ? "À jour" : "En retard"}</p>
+          </button>
+        </StaggerItem>
+        <StaggerItem>
+          <button onClick={() => setTab("documents")} className="w-full rounded-lg border bg-card p-3 text-left">
+            <div className="flex items-center justify-between">
+              <FileText className="h-4 w-4 text-muted-foreground" />
+            </div>
+            <p className="text-[10px] text-muted-foreground mt-2">Statut</p>
+            <p className="text-sm font-semibold">{m.status}</p>
+          </button>
+        </StaggerItem>
+      </Stagger>
 
       {profile.stats.totalDue > 0 && (
         <div className="rounded-lg border bg-card p-3">
@@ -735,15 +746,18 @@ export function SportTab({ profile, memberId }: { profile: MemberProfile; member
   return (
     <div className="p-3 space-y-3">
       {/* En-tête Commission Sportive */}
-      <div className="rounded-xl bg-gradient-to-br from-primary to-primary/80 text-primary-foreground p-4">
-        <div className="flex items-center gap-2">
-          <Trophy className="h-5 w-5" />
-          <p className="text-sm font-semibold">Commission Sportive</p>
+      <FadeIn>
+        <div className="rounded-xl bg-gradient-to-br from-primary to-primary/80 text-primary-foreground p-4 relative overflow-hidden">
+          <div className="pointer-events-none absolute -top-8 -right-8 h-24 w-24 rounded-full bg-white/15 blur-xl" />
+          <div className="flex items-center gap-2">
+            <Trophy className="h-5 w-5" />
+            <p className="text-sm font-semibold">Commission Sportive</p>
+          </div>
+          <p className="text-[10px] opacity-80 mt-1">
+            Compétitions sportives inter-classes de l'amicale — fair-play, discipline et respect
+          </p>
         </div>
-        <p className="text-[10px] opacity-80 mt-1">
-          Compétitions sportives inter-classes de l'amicale — fair-play, discipline et respect
-        </p>
-      </div>
+      </FadeIn>
 
       {/* Règlement */}
       <div className="rounded-lg border bg-card p-3">
@@ -1196,6 +1210,7 @@ function DelegateTeamCard({ d, onChanged }: { d: any; onChanged: () => void }) {
   const [captainId, setCaptainId] = useState("")
   const [playerIds, setPlayerIds] = useState<string[]>([])
   const [posMap, setPosMap] = useState<Record<string, string>>({})
+  const [attachments, setAttachments] = useState<TeamAttachmentUI[]>([])
   const [search, setSearch] = useState("")
   const [editing, setEditing] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -1224,6 +1239,7 @@ function DelegateTeamCard({ d, onChanged }: { d: any; onChanged: () => void }) {
       const pm: Record<string, string> = {}
       for (const p of team.playersDetails ?? []) if (p.position) pm[p.id] = p.position
       setPosMap(pm)
+      setAttachments(Array.isArray(team.attachments) ? team.attachments : [])
       setEditing(false)
     }
   }, [team])
@@ -1255,6 +1271,7 @@ function DelegateTeamCard({ d, onChanged }: { d: any; onChanged: () => void }) {
         captainId: captainId || null,
         playerIds,
         positions: playerIds.length ? posMap : undefined,
+        attachments: attachments.length ? attachments : undefined,
       }
       const res = await fetch(team ? `/api/member-space/sport/teams/${team.id}` : "/api/member-space/sport/teams", {
         method: team ? "PUT" : "POST",
@@ -1394,6 +1411,16 @@ function DelegateTeamCard({ d, onChanged }: { d: any; onChanged: () => void }) {
               ))}
             </div>
           )}
+          {Array.isArray(team.attachments) && team.attachments.length > 0 && (
+            <div className="flex flex-wrap gap-1.5">
+              {team.attachments.map((a: TeamAttachmentUI) => (
+                <a key={a.url} href={a.url} target="_blank" rel="noopener noreferrer" className="inline-flex max-w-full items-center gap-1 rounded border bg-muted/50 px-1.5 py-0.5 text-[9px] text-primary hover:bg-muted">
+                  <FileText className="h-3 w-3 shrink-0" />
+                  <span className="truncate">{a.name}</span>
+                </a>
+              ))}
+            </div>
+          )}
           {needsCorrection && team.refusalReason && (
             <div className={`rounded border p-2 text-[10px] ${team.status === "RETURNED" ? "bg-orange-50 border-orange-200 text-orange-700" : "bg-rose-50 border-rose-200 text-rose-700"}`}>
               <p className="font-medium">{team.status === "RETURNED" ? "Retournée pour correction — motif :" : "Refusée — motif :"} {team.refusalReason}</p>
@@ -1518,6 +1545,25 @@ function DelegateTeamCard({ d, onChanged }: { d: any; onChanged: () => void }) {
                 })}
               </SelectContent>
             </Select>
+          </div>
+          <div className="space-y-1">
+            <div className="flex items-center justify-between gap-2">
+              <Label className="text-[10px] font-medium">Pièces jointes (documents, photos…)</Label>
+              <FileUploadButton folder="teams" accept={fileAcceptByType("document") + ",image/*"} label="Ajouter" className="h-7 px-2 text-[10px]" onUploaded={(m) => setAttachments([...attachments, { url: m.url, name: m.name, type: m.type, size: m.size }])} />
+            </div>
+            {attachments.length === 0 ? (
+              <p className="text-[10px] text-muted-foreground">Aucune pièce jointe — le règlement peut en exiger (ex. certificat médical, photo d'équipe).</p>
+            ) : (
+              <div className="space-y-1">
+                {attachments.map((a) => (
+                  <div key={a.url} className="flex items-center gap-2 rounded border bg-muted/30 px-2 py-1 text-[10px]">
+                    <FileText className="h-3.5 w-3.5 shrink-0 text-primary" />
+                    <a href={a.url} target="_blank" rel="noopener noreferrer" className="min-w-0 flex-1 truncate text-primary hover:underline">{a.name}</a>
+                    <button type="button" className="shrink-0 text-muted-foreground hover:text-destructive" onClick={() => setAttachments(attachments.filter((x) => x.url !== a.url))}>×</button>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
           <div className="flex gap-1.5">
             <Button className="flex-1 h-8 text-xs gap-1.5" onClick={saveDraft} disabled={saving}>

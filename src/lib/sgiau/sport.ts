@@ -216,6 +216,35 @@ export async function checkTeamRules(opts: {
   return null
 }
 
+export interface TeamAttachment {
+  url: string
+  name: string
+  type?: string
+  size?: number
+}
+
+/** Normalise une liste de pièces jointes d'équipe. */
+export function parseAttachments(value: unknown): TeamAttachment[] {
+  if (!Array.isArray(value)) return []
+  const out: TeamAttachment[] = []
+  for (const v of value) {
+    if (!v || typeof v !== "object") continue
+    const a = v as Record<string, unknown>
+    if (typeof a.url !== "string" || !a.url.trim()) continue
+    out.push({
+      url: a.url.trim(),
+      name: (a.name ? String(a.name) : a.url.split("/").pop() ?? a.url).slice(0, 200),
+      type: typeof a.type === "string" ? a.type : undefined,
+      size: typeof a.size === "number" ? a.size : undefined,
+    })
+  }
+  return out
+}
+
+export function stringifyAttachments(attachments: TeamAttachment[]): string | null {
+  return attachments.length ? JSON.stringify(attachments) : null
+}
+
 /** Postes configurés pour une discipline. */
 export async function getDisciplinePositions(disciplineId: string): Promise<string[]> {
   const rows = await db.sportPosition.findMany({
@@ -254,7 +283,7 @@ export async function getTeamPlayerPositions(teamId: string): Promise<Map<string
 }
 
 /** Détails des joueurs/participants d'une équipe (ids → objets + postes). */
-export async function withTeamDetails<T extends { id: string; players: string | null; participants: string | null }>(team: T) {
+export async function withTeamDetails<T extends { id: string; players: string | null; participants: string | null; attachments?: string | null }>(team: T) {
   const playerIds = parseIdArray(team.players)
   const participantIds = parseIdArray(team.participants)
   const [members, participants, posMap] = await Promise.all([
@@ -285,6 +314,7 @@ export async function withTeamDetails<T extends { id: string; players: string | 
       .filter((m): m is NonNullable<typeof m> => !!m),
     participantsDetails: participantIds.map((id) => participantMap.get(id)).filter((p): p is NonNullable<typeof p> => !!p),
     positions: Object.fromEntries([...posMap.entries()]),
+    attachments: parseAttachments(team.attachments),
   }
 }
 
@@ -331,8 +361,9 @@ export async function computeStandings(opts: {
       { teamId: t.id, teamName: t.name, className: t.className, level: t.level, played: 0, won: 0, drawn: 0, lost: 0, goalsFor: 0, goalsAgainst: 0, goalDiff: 0, points: 0 },
     ])
   )
+  // Seuls les matchs à la feuille officiellement confirmée (ou historiques sans feuille) comptent
   const matches = await db.sportMatch.findMany({
-    where: { disciplineId, status: "PLAYED" },
+    where: { disciplineId, status: "PLAYED", sheetStatus: { in: ["CONFIRMED", "NONE"] } },
     select: { teamAId: true, teamBId: true, scoreA: true, scoreB: true },
   })
   for (const m of matches) {

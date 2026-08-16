@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server"
 import { db } from "@/lib/db"
 import { ok, err, audit, serialize, requireSportResponsable, notifyMember } from "@/lib/sgiau/api"
-import { checkTeamRules, parseIdArray, stringifyIds, withTeamDetails, TEAM_STATUSES } from "@/lib/sgiau/sport"
+import { checkTeamRules, parseIdArray, stringifyIds, withTeamDetails, TEAM_STATUSES, parseAttachments, stringifyAttachments } from "@/lib/sgiau/sport"
 
 export const dynamic = "force-dynamic"
 
@@ -65,6 +65,9 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     if (body.playerIds !== undefined) data.players = stringifyIds(players)
     if (before.kind === "EXCEPTIONAL" && body.participantIds !== undefined) {
       data.participants = stringifyIds(participants)
+    }
+    if (Array.isArray(body.attachments)) {
+      data.attachments = stringifyAttachments(parseAttachments(body.attachments))
     }
     // Synchronisation des postes des joueurs (si fournis)
     if (body.playerIds !== undefined && body.positions && typeof body.positions === "object") {

@@ -150,7 +150,13 @@ résultats. `Votes internes` : votes anonymes avec options.
 - **Crée les équipes exceptionnelles** et enregistre les **participants exceptionnels**
   (administration universitaire : directeurs des études, responsables pédagogiques…,
   sans compte utilisateur).
-- **Choisit, valide et affecte les arbitres** aux matchs ; programme les **matchs**.
+- **Choisit, valide et affecte les arbitres** aux matchs ; programme les **matchs** et
+  **saisit les feuilles de match** : score, joueurs (numéro, buts, cartons), arbitre,
+  observations — enregistrées en **brouillon** puis **confirmées officiellement**
+  (numéro de feuille attribué, score figé, match marqué « joué »). Une feuille confirmée
+  peut être **rouverte pour correction** (le score est alors dégelé).
+- **Consulte le classement officiel** (onglet « Classements ») : calculé automatiquement
+  à partir des seules feuilles confirmées et publié dans l'application étudiante.
 - **Retourne une équipe pour correction** (avec motif, distinct du refus) : le responsable
   de classe corrige puis soumet à nouveau.
 - **Configure les disciplines** : règles de composition (min/max joueurs) et **postes

@@ -7,6 +7,9 @@
     "build": "next build && node scripts/copy-standalone.mjs",
     "start": "NODE_ENV=production PORT=${PORT:-3000} bun .next/standalone/server.js 2>&1 | tee server.log",
     "lint": "eslint .",
+    "test:e2e": "playwright test",
+    "test:e2e:headed": "playwright test --headed",
+    "test:e2e:ui": "playwright test --ui",
     "db:push": "prisma db push --accept-data-loss",
     "db:generate": "prisma generate",
     "postinstall": "prisma generate",
@@ -87,6 +90,7 @@
     "zustand": "^5.0.6"
   },
   "devDependencies": {
+    "@playwright/test": "^1.62.1",
     "@tailwindcss/postcss": "^4",
     "@types/bcryptjs": "^3.0.0",
     "@types/qrcode": "^1.5.6",

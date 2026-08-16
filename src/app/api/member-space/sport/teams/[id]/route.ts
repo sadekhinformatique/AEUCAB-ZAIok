@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server"
 import { db } from "@/lib/db"
 import { ok, err, audit, serialize, getCurrentUserId, resolveMemberId } from "@/lib/sgiau/api"
-import { checkTeamRules, parseIdArray, stringifyIds, withTeamDetails, DELEGATE_EDITABLE_STATUSES } from "@/lib/sgiau/sport"
+import { checkTeamRules, parseIdArray, stringifyIds, withTeamDetails, DELEGATE_EDITABLE_STATUSES, parseAttachments, stringifyAttachments } from "@/lib/sgiau/sport"
 
 export const dynamic = "force-dynamic"
 
@@ -29,6 +29,9 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
 
   const body = await req.json()
   const players = parseIdArray(body.playerIds !== undefined ? body.playerIds : before.players)
+  const attachments = Array.isArray(body.attachments)
+    ? parseAttachments(body.attachments)
+    : parseAttachments(before.attachments)
   const posMap =
     body.positions && typeof body.positions === "object"
       ? Object.fromEntries(
@@ -51,6 +54,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     players: stringifyIds(players),
     // Une équipe refusée ou retournée redevient un brouillon pour correction
     ...(before.status === "REJECTED" || before.status === "RETURNED" ? { status: "DRAFT", refusalReason: null } : {}),
+    ...(Array.isArray(body.attachments) ? { attachments: stringifyAttachments(attachments) } : {}),
   }
   if (typeof body.name === "string") data.name = body.name.trim() || before.name
   if (typeof body.captainId === "string") {
