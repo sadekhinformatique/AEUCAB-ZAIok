@@ -16,7 +16,10 @@ export async function GET(req: NextRequest) {
   const teams = await db.sportTeam.findMany({
     where,
     orderBy: [{ className: "asc" }, { level: "asc" }],
-    include: { discipline: true },
+    include: {
+      discipline: true,
+      member: { select: { id: true, matricule: true, firstName: true, lastName: true } },
+    },
   })
   return ok(serialize(teams))
 }

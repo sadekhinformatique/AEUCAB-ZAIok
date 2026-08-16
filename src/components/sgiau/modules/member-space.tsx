@@ -5,7 +5,7 @@ import { PageHeader, SectionCard, EmptyState, LoadingState, Money } from "@/comp
 import {
   Smartphone, Home, Wallet, FileText, Send, User, LogOut, Pin, CheckCircle2,
   AlertCircle, Download, ChevronRight, Bell, Search, MessageSquare, Loader2,
-  Trophy, CalendarDays, MapPin, Clock,
+  Trophy, CalendarDays, MapPin, Clock, UserPlus, Trash2,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -647,8 +647,32 @@ function isSportActivity(a: any): boolean {
   return SPORT_KEYWORDS.some((k) => hay.includes(k))
 }
 
+const MY_TEAM_STATUS: Record<string, { label: string; cls: string }> = {
+  INSCRIPTION: { label: "En attente de validation", cls: "bg-amber-50 text-amber-700 border-amber-200" },
+  CONFIRMED: { label: "Validée", cls: "bg-emerald-50 text-emerald-700 border-emerald-200" },
+  REJECTED: { label: "Rejetée", cls: "bg-rose-50 text-rose-700 border-rose-200" },
+}
+
+const MATCH_PHASE_LABEL: Record<string, string> = {
+  POOL: "Poules", QUARTER: "Quart de finale", SEMI: "Demi-finale", FINAL: "Finale",
+}
+
+function classLabel(className: string, level: string): string {
+  return `${className}${level ? ` · ${level}` : ""}`
+}
+
 export function SportTab({ profile }: { profile: MemberProfile }) {
   const [competitions, setCompetitions] = useState<any[] | null>(null)
+  const [myTeams, setMyTeams] = useState<any[] | null>(null)
+  const [disciplines, setDisciplines] = useState<any[]>([])
+  const [matches, setMatches] = useState<any[] | null>(null)
+  const [registeredTeams, setRegisteredTeams] = useState<any[] | null>(null)
+  const [teamForm, setTeamForm] = useState({ disciplineId: "", name: "", captainName: "", players: "" })
+  const [submitting, setSubmitting] = useState(false)
+  const [removingId, setRemovingId] = useState<string | null>(null)
+
+  const m = profile.member
+  const myClass = m.faculty ? `${m.faculty}${m.level ? ` · ${m.level}` : ""}` : null
 
   // Tous les setState se trouvent dans les callbacks (.then/.catch) :
   // la règle react-hooks/set-state-in-effect l'exige pour les fonctions appelées depuis un effet.
@@ -671,7 +695,79 @@ export function SportTab({ profile }: { profile: MemberProfile }) {
       .catch(() => setCompetitions([]))
   }, [])
 
+  const loadTeams = useCallback(() => {
+    Promise.all([
+      fetch("/api/member-space/sport/teams").then((r) => r.json()).catch(() => []),
+      fetch("/api/sport/disciplines").then((r) => r.json()).catch(() => []),
+    ]).then(([t, d]) => {
+      setMyTeams(Array.isArray(t) ? t : [])
+      setDisciplines((Array.isArray(d) ? d : []).filter((x: any) => x.active))
+    })
+  }, [])
+
+  const loadCalendar = useCallback(() => {
+    Promise.all([
+      fetch("/api/sport/matches").then((r) => r.json()).catch(() => []),
+      fetch("/api/sport/teams").then((r) => r.json()).catch(() => []),
+    ]).then(([m, t]) => {
+      setMatches(Array.isArray(m) ? m : [])
+      setRegisteredTeams((Array.isArray(t) ? t : []).filter((x: any) => x.status !== "REJECTED"))
+    })
+  }, [])
+
   useEffect(() => { load() }, [load])
+  useEffect(() => { loadTeams() }, [loadTeams])
+  useEffect(() => { loadCalendar() }, [loadCalendar])
+
+  const upcomingMatches = (matches ?? [])
+    .filter((m: any) => {
+      if (m.status !== "SCHEDULED") return false
+      return new Date(m.date).getTime() >= Date.now() - 24 * 60 * 60 * 1000
+    })
+    .sort((a: any, b: any) => new Date(a.date).getTime() - new Date(b.date).getTime())
+
+  const publicTeams = (registeredTeams ?? []).filter(
+    (t: any) => t.status === "INSCRIPTION" || t.status === "CONFIRMED"
+  )
+
+  async function submitTeam(e: React.FormEvent) {
+    e.preventDefault()
+    if (!teamForm.disciplineId) { toast.error("Choisissez une discipline"); return }
+    setSubmitting(true)
+    try {
+      const res = await fetch("/api/member-space/sport/teams", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...teamForm, players: teamForm.players }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data?.error || "Erreur")
+      toast.success("Équipe déposée — en attente de validation par le bureau")
+      setTeamForm({ disciplineId: "", name: "", captainName: "", players: "" })
+      loadTeams()
+      loadCalendar()
+    } catch (err) {
+      toast.error((err as Error).message)
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  async function removeMyTeam(id: string) {
+    setRemovingId(id)
+    try {
+      const res = await fetch(`/api/member-space/sport/teams?id=${id}`, { method: "DELETE" })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(data?.error || "Erreur")
+      toast.success("Inscription retirée")
+      loadTeams()
+      loadCalendar()
+    } catch (err) {
+      toast.error((err as Error).message)
+    } finally {
+      setRemovingId(null)
+    }
+  }
 
   return (
     <div className="p-3 space-y-3">
@@ -722,56 +818,199 @@ export function SportTab({ profile }: { profile: MemberProfile }) {
         </div>
       </div>
 
-      {/* Dates de compétition */}
+      {/* Inscription d'équipe */}
       <div className="rounded-lg border bg-card p-3">
         <div className="flex items-center gap-2 mb-2">
-          <CalendarDays className="h-4 w-4 text-primary" />
-          <p className="text-xs font-semibold">Dates de compétition</p>
+          <UserPlus className="h-4 w-4 text-primary" />
+          <p className="text-xs font-semibold">Inscrire mon équipe</p>
         </div>
-        {competitions === null ? (
+        {myTeams === null ? (
           <p className="text-xs text-muted-foreground p-3 text-center">Chargement…</p>
-        ) : competitions.length === 0 ? (
-          <div className="text-center py-5">
-            <Trophy className="mx-auto h-6 w-6 text-muted-foreground/40" />
-            <p className="mt-2 text-xs text-muted-foreground">Aucune compétition programmée</p>
-            <p className="text-[10px] text-muted-foreground/70 mt-0.5">
-              Les compétitions de la Commission Sportive apparaîtront ici dès qu'elles seront planifiées
-            </p>
-          </div>
-        ) : (
+        ) : myTeams.length > 0 ? (
           <div className="space-y-2">
-            {competitions.map((a: any) => {
-              const start = new Date(a.startDate)
-              const ongoing = a.status === "ONGOING"
+            {myTeams.map((t: any) => {
+              const st = MY_TEAM_STATUS[t.status] ?? MY_TEAM_STATUS.INSCRIPTION
               return (
-                <div key={a.id} className="rounded-lg border bg-muted/30 p-3">
+                <div key={t.id} className="rounded-lg border bg-muted/30 p-3">
                   <div className="flex items-start justify-between gap-2">
-                    <p className="text-sm font-medium">{a.name}</p>
-                    {ongoing && (
-                      <Badge variant="outline" className="text-[9px] shrink-0 bg-emerald-50 text-emerald-700">
-                        En cours
-                      </Badge>
-                    )}
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium truncate">{t.name}</p>
+                      <p className="text-[10px] text-muted-foreground">{t.discipline?.name ?? "—"} · {classLabel(t.className, t.level)}</p>
+                    </div>
+                    <Badge variant="outline" className={`text-[9px] shrink-0 ${st.cls}`}>{st.label}</Badge>
                   </div>
-                  {a.description && (
-                    <p className="text-[11px] text-muted-foreground mt-0.5 line-clamp-2">{a.description}</p>
+                  {t.status === "INSCRIPTION" && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="w-full mt-2 h-7 text-xs gap-1.5"
+                      onClick={() => removeMyTeam(t.id)}
+                      disabled={removingId === t.id}
+                    >
+                      {removingId === t.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Trash2 className="h-3 w-3" />}
+                      Retirer l'inscription
+                    </Button>
                   )}
-                  <div className="mt-1.5 space-y-0.5 text-[11px] text-muted-foreground">
-                    <p className="flex items-center gap-1.5">
-                      <Clock className="h-3 w-3 shrink-0" /> {formatDate(a.startDate)}
-                      {a.endDate && a.endDate !== a.startDate && ` → ${formatDate(a.endDate)}`}
-                    </p>
-                    {a.location && (
-                      <p className="flex items-center gap-1.5">
-                        <MapPin className="h-3 w-3 shrink-0" /> {a.location}
-                      </p>
-                    )}
-                  </div>
+                  {t.status === "REJECTED" && (
+                    <p className="text-[10px] text-muted-foreground mt-1.5">Cette inscription a été refusée par le bureau — contactez la Commission Sportive.</p>
+                  )}
                 </div>
               )
             })}
           </div>
+        ) : !myClass ? (
+          <p className="text-xs text-muted-foreground p-3 text-center rounded-lg border">
+            Votre dossier ne contient pas de filière — contactez le bureau pour inscrire votre équipe.
+          </p>
+        ) : (
+          <form onSubmit={submitTeam} className="space-y-2">
+            <div className="rounded-lg bg-muted/50 px-3 py-2 text-[11px] text-muted-foreground">
+              Classe : <span className="font-medium text-foreground">{myClass}</span>
+            </div>
+            <div className="space-y-1">
+              <Label className="text-[10px] font-medium">Discipline *</Label>
+              <Select value={teamForm.disciplineId} onValueChange={(v) => setTeamForm({ ...teamForm, disciplineId: v })}>
+                <SelectTrigger className="h-9 text-xs"><SelectValue placeholder="Choisir…" /></SelectTrigger>
+                <SelectContent>
+                  {disciplines.length === 0 ? (
+                    <p className="px-2 py-2 text-[10px] text-muted-foreground">Aucune discipline ouverte à l'inscription</p>
+                  ) : disciplines.map((d: any) => (
+                    <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1">
+              <Label className="text-[10px] font-medium">Nom de l'équipe</Label>
+              <Input className="h-9 text-xs" value={teamForm.name} onChange={(e) => setTeamForm({ ...teamForm, name: e.target.value })} placeholder="Laissez vide pour « Classe — Discipline »" />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-[10px] font-medium">Capitaine</Label>
+              <Input className="h-9 text-xs" value={teamForm.captainName} onChange={(e) => setTeamForm({ ...teamForm, captainName: e.target.value })} placeholder="Nom du capitaine" />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-[10px] font-medium">Joueurs (un par ligne)</Label>
+              <Textarea rows={3} className="text-xs" value={teamForm.players} onChange={(e) => setTeamForm({ ...teamForm, players: e.target.value })} placeholder={"Nom du joueur 1\nNom du joueur 2\n…"} />
+              <p className="text-[9px] text-muted-foreground">Tout joueur doit être inscrit dans votre classe (art. 2).</p>
+            </div>
+            <Button type="submit" className="w-full h-8 text-xs gap-1.5" disabled={submitting}>
+              {submitting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <UserPlus className="h-3.5 w-3.5" />}
+              {submitting ? "Envoi…" : "Déposer l'équipe"}
+            </Button>
+          </form>
         )}
+      </div>
+
+      {/* Dates de compétition */}
+      <div className="rounded-lg border bg-card p-3 space-y-3">
+        <div className="flex items-center gap-2">
+          <CalendarDays className="h-4 w-4 text-primary" />
+          <p className="text-xs font-semibold">Dates de compétition</p>
+        </div>
+
+        {/* Matchs */}
+        <div>
+          <p className="text-[10px] font-medium text-muted-foreground mb-1.5">Matchs à venir</p>
+          {matches === null ? (
+            <p className="text-xs text-muted-foreground p-3 text-center rounded-lg border">Chargement…</p>
+          ) : upcomingMatches.length === 0 ? (
+            <p className="text-xs text-muted-foreground p-3 text-center rounded-lg border">Aucun match programmé</p>
+          ) : (
+            <div className="space-y-2">
+              {upcomingMatches.map((m: any) => (
+                <div key={m.id} className="rounded-lg border bg-muted/30 p-3">
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="text-[10px] font-semibold uppercase tracking-wide text-primary">
+                      {MATCH_PHASE_LABEL[m.phase] ?? m.phase}
+                    </p>
+                    <p className="flex items-center gap-1 text-[10px] text-muted-foreground">
+                      <Clock className="h-3 w-3" /> {formatDate(m.date)}
+                    </p>
+                  </div>
+                  <div className="mt-1.5 flex items-center gap-2 text-sm font-medium">
+                    <span className="min-w-0 flex-1 truncate text-right">{m.teamA?.name ?? "—"}</span>
+                    <span className="shrink-0 text-xs text-muted-foreground">vs</span>
+                    <span className="min-w-0 flex-1 truncate">{m.teamB?.name ?? "—"}</span>
+                  </div>
+                  {m.location && (
+                    <p className="mt-1 flex items-center gap-1 text-[10px] text-muted-foreground">
+                      <MapPin className="h-3 w-3 shrink-0" /> {m.location}
+                    </p>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Équipes inscrites */}
+        <div>
+          <p className="text-[10px] font-medium text-muted-foreground mb-1.5">Équipes inscrites</p>
+          {registeredTeams === null ? (
+            <p className="text-xs text-muted-foreground p-3 text-center rounded-lg border">Chargement…</p>
+          ) : publicTeams.length === 0 ? (
+            <p className="text-xs text-muted-foreground p-3 text-center rounded-lg border">Aucune équipe inscrite pour le moment</p>
+          ) : (
+            <div className="space-y-1.5">
+              {publicTeams.map((t: any) => (
+                <div key={t.id} className="flex items-center justify-between gap-2 rounded-lg border bg-muted/30 px-3 py-2">
+                  <div className="min-w-0">
+                    <p className="truncate text-xs font-medium">{t.name}</p>
+                    <p className="truncate text-[10px] text-muted-foreground">
+                      {t.discipline?.name ?? "—"} · {classLabel(t.className, t.level)}
+                    </p>
+                  </div>
+                  <Badge variant="outline" className={`shrink-0 text-[9px] ${MY_TEAM_STATUS[t.status]?.cls ?? ""}`}>
+                    {MY_TEAM_STATUS[t.status]?.label ?? t.status}
+                  </Badge>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Compétitions */}
+        <div>
+          <p className="text-[10px] font-medium text-muted-foreground mb-1.5">Compétitions</p>
+          {competitions === null ? (
+            <p className="text-xs text-muted-foreground p-3 text-center rounded-lg border">Chargement…</p>
+          ) : competitions.length === 0 ? (
+            <p className="text-xs text-muted-foreground p-3 text-center rounded-lg border">Aucune compétition programmée</p>
+          ) : (
+            <div className="space-y-2">
+              {competitions.map((a: any) => {
+                const start = new Date(a.startDate)
+                const ongoing = a.status === "ONGOING"
+                return (
+                  <div key={a.id} className="rounded-lg border bg-muted/30 p-3">
+                    <div className="flex items-start justify-between gap-2">
+                      <p className="text-sm font-medium">{a.name}</p>
+                      {ongoing && (
+                        <Badge variant="outline" className="text-[9px] shrink-0 bg-emerald-50 text-emerald-700">
+                          En cours
+                        </Badge>
+                      )}
+                    </div>
+                    {a.description && (
+                      <p className="text-[11px] text-muted-foreground mt-0.5 line-clamp-2">{a.description}</p>
+                    )}
+                    <div className="mt-1.5 space-y-0.5 text-[11px] text-muted-foreground">
+                      <p className="flex items-center gap-1.5">
+                        <Clock className="h-3 w-3 shrink-0" /> {formatDate(a.startDate)}
+                        {a.endDate && a.endDate !== a.startDate && ` → ${formatDate(a.endDate)}`}
+                      </p>
+                      {a.location && (
+                        <p className="flex items-center gap-1.5">
+                          <MapPin className="h-3 w-3 shrink-0" /> {a.location}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   )

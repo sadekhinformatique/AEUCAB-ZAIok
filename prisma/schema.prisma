@@ -102,6 +102,7 @@ model Member {
   votes           VoteBallot[]
   electionCands   ElectionCandidate[]
   activities      ActivityParticipant[]
+  sportTeams      SportTeam[]
   meetings        MeetingParticipant[]
   formations      FormationParticipant[]
   borrows         LibraryBorrow[]
@@ -383,6 +384,7 @@ model SportDiscipline {
   createdAt   DateTime @default(now())
 
   teams       SportTeam[]
+  matches     SportMatch[]
 }
 
 model SportTeam {
@@ -395,6 +397,8 @@ model SportTeam {
   captainName  String?
   players      String?  // liste des joueurs (JSON array)
   status       String   @default("INSCRIPTION") // INSCRIPTION, CONFIRMED, REJECTED
+  memberId     String?  // membre ayant déposé l'inscription (null si créée par le bureau)
+  member       Member?  @relation(fields: [memberId], references: [id], onDelete: SetNull)
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
@@ -402,6 +406,31 @@ model SportTeam {
   @@unique([disciplineId, className, level])
   @@index([disciplineId])
   @@index([className, level])
+  @@index([memberId])
+
+  matchesA     SportMatch[] @relation("MatchTeamA")
+  matchesB     SportMatch[] @relation("MatchTeamB")
+}
+
+model SportMatch {
+  id           String   @id @default(cuid())
+  disciplineId String
+  discipline   SportDiscipline @relation(fields: [disciplineId], references: [id], onDelete: Cascade)
+  teamAId      String
+  teamA        SportTeam @relation("MatchTeamA", fields: [teamAId], references: [id], onDelete: Cascade)
+  teamBId      String
+  teamB        SportTeam @relation("MatchTeamB", fields: [teamBId], references: [id], onDelete: Cascade)
+  date         DateTime
+  location     String?
+  phase        String   @default("POOL") // POOL, QUARTER, SEMI, FINAL
+  status       String   @default("SCHEDULED") // SCHEDULED, PLAYED, CANCELLED
+  scoreA       Int?
+  scoreB       Int?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([disciplineId])
+  @@index([date])
 }
 
 // ============================================================
